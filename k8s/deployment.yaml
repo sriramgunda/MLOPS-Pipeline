@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: heart-disease-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: heart-disease
+  template:
+    metadata:
+      labels:
+        app: heart-disease
+    spec:
+      imagePullSecrets:
+      - name: ghcr-secret
+      containers:
+      - name: heart-disease-api
+        image: ghcr.io/sriramgunda/heart-disease-api:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
