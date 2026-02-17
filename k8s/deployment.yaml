@@ -1,22 +1,69 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: heart-disease-deployment
+  name: cats-dogs-deployment
+  labels:
+    app: cats-dogs-classifier
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: heart-disease
+      app: cats-dogs-classifier
   template:
     metadata:
       labels:
-        app: heart-disease
+        app: cats-dogs-classifier
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
     spec:
       imagePullSecrets:
       - name: ghcr-secret
       containers:
-      - name: heart-disease-api
-        image: ghcr.io/sriramgunda/heart-disease-api:latest
+      - name: cats-dogs-api
+        image: ghcr.io/sriramgunda/cats-dogs-classifier:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
+          name: http
+          protocol: TCP
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        env:
+        - name: TF_CPP_MIN_LOG_LEVEL
+          value: "2"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        volumeMounts:
+        - name: models
+          mountPath: /app/models
+        - name: artifacts
+          mountPath: /app/artifacts
+      volumes:
+      - name: models
+        emptyDir: {}
+      - name: artifacts
+        emptyDir: {}
+
