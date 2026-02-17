@@ -1,0 +1,33 @@
+train_config:
+  epochs: 20
+  batch_size: 32
+  learning_rate: 0.001
+  validation_split: 0.1
+  test_split: 0.1
+  image_size:
+    height: 224
+    width: 224
+  
+data_config:
+  data_dir: data/cats_and_dogs
+  train_dir: data/cats_and_dogs/train
+  val_dir: data/cats_and_dogs/val
+  test_dir: data/cats_and_dogs/test
+  
+augmentation:
+  enable: true
+  flip_horizontal: true
+  rotation_range: 20
+  brightness_range: [0.8, 1.2]
+  zoom_range: 0.2
+  
+model_config:
+  architecture: cnn
+  pretrained: false
+  freeze_layers: false
+  dropout_rate: 0.5
+  
+artifacts:
+  model_path: artifacts/model.h5
+  metrics_path: artifacts/metrics.json
+  plots_dir: plots/
