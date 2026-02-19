@@ -52,7 +52,7 @@ PREDICTION_CONFIDENCE = Histogram(
 # ========================
 # Load Model
 # ========================
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.h5")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "mobilenet_v2.keras")
 logger.info(f"Loading model from {MODEL_PATH}")
 
 try:
@@ -335,12 +335,3 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
-
-    with REQUEST_LATENCY.time():
-        response = await call_next(request)
-
-    return response
-
-@app.get("/metrics")
-def metrics():
-    return Response(generate_latest(), media_type="text/plain")
