@@ -12,6 +12,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    
+    env:
+      CUDA_VISIBLE_DEVICES: "-1"
 
     steps:
     - name: Checkout Repository

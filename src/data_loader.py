@@ -6,6 +6,7 @@ Handles Kaggle dataset download and 80/10/10 train/validation/test split
 import os
 import shutil
 import subprocess
+import zipfile
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from PIL import Image
@@ -65,9 +66,16 @@ def extract_dataset(download_dir: str = "data"):
     try:
         zip_path = os.path.join(download_dir, "cat-and-dog.zip")
         logger.info(f"Extracting dataset from {zip_path} to {download_dir}...")
-        subprocess.run(["unzip", "-q", zip_path, "-d", download_dir], check=True)
-        logger.info("Dataset extracted successfully.")
-    except subprocess.CalledProcessError as e:
+        if not os.path.exists(zip_path):
+            raise FileNotFoundError(f"Zip file not found: {zip_path}")
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(download_dir)
+            logger.info("Dataset extracted successfully.")
+        except zipfile.BadZipFile as e:
+            logger.error(f"Bad zip file: {e}")
+            raise
+    except Exception as e:
         logger.error(f"Error extracting dataset: {e}")
         raise
 
