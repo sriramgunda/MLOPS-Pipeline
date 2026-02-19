@@ -1,35 +1,35 @@
 # Core Data Science & ML
-tensorflow==2.14.0
-keras==2.14.0
-numpy==1.24.3
-pandas==2.0.3
-scikit-learn==1.3.1
-opencv-python==4.8.1.78
-Pillow==10.0.0
+tensorflow
+numpy
+pandas
+scikit-learn
+opencv-python
+Pillow
 seaborn
+keras
 
 # Deep Learning & Transfer Learning
-tensorflow-hub==0.14.0
+tensorflow-hub
 
 # API & Serving
-fastapi==0.103.0
-uvicorn==0.23.2
-python-multipart==0.0.6
-pydantic==2.3.0
+fastapi
+uvicorn
+python-multipart
+pydantic
 
 # Experiment Tracking
-mlflow==2.7.1
+mlflow
 
 # Monitoring & Metrics
-prometheus-client==0.17.1
+prometheus-client
 
 # Testing
-pytest==7.4.2
-pytest-cov==4.1.0
+pytest
+pytest-cov
 
 # Data Augmentation
-albumentations==1.3.1
+albumentations
 
 # Utilities
-python-dotenv==1.0.0
-pytz==2023.3
+python-dotenv
+pytz

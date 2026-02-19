@@ -16,7 +16,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers, models
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
-from sklearn.metrics import confusion_matrix, roc_cure, auc, classification_report
+from sklearn.metrics import confusion_matrix, roc_curve, auc, classification_report
 
 # MLflow for experiment tracking
 import mlflow
