@@ -23,7 +23,7 @@ import mlflow
 import mlflow.keras
 
 # Local imports
-from data_loader import load_data, get_dataset_info
+from data_loader import load_data, get_dataset_info, download_dataset, create_data_splits
 from data_preprocessing import prepare_batch, validate_image
 
 logging.basicConfig(level=logging.INFO)
@@ -139,15 +139,25 @@ def train_model(model_type="baseline", dataset_path="data/cats_and_dogs"):
         mlflow.log_param("epochs", EPOCHS)
         mlflow.log_param("learning_rate", LEARNING_RATE)
         
-        # Load data
+        # Load data (attempt to create structure if missing)
         logger.info("Loading dataset...")
         train_data = load_data(dataset_path, "train")
         val_data = load_data(dataset_path, "val")
         test_data = load_data(dataset_path, "test")
-        
+
         if not train_data or not val_data:
-            logger.error("Failed to load dataset")
-            return
+            logger.warning("Dataset splits missing; attempting to create dataset structure for local testing...")
+            dataset_path = download_dataset(dataset_path)
+            create_data_splits(dataset_path)
+
+            # Retry loading
+            train_data = load_data(dataset_path, "train")
+            val_data = load_data(dataset_path, "val")
+            test_data = load_data(dataset_path, "test")
+
+        if not train_data or not val_data:
+            logger.error("Failed to load dataset after attempting to create splits. Please provide dataset at data/cats_and_dogs")
+            raise RuntimeError("Dataset not found or empty; please prepare dataset at data/cats_and_dogs")
         
         # Extract paths and labels
         train_paths = [item[0] for item in train_data]
@@ -304,4 +314,8 @@ def train_model(model_type="baseline", dataset_path="data/cats_and_dogs"):
 
 if __name__ == "__main__":
     # Train baseline model
-    model, history = train_model(model_type="baseline")
+    try:
+        model, history = train_model(model_type="baseline")
+    except RuntimeError as e:
+        logger.error(f"Training aborted: {e}")
+        sys.exit(1)

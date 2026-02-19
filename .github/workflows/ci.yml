@@ -31,6 +31,10 @@ jobs:
     - name: Lint Code (flake8)
       run: |
         flake8 src/train_cnn.py || true
+    
+    - name: Data Preprocessing
+       run: |
+        python src/data_loader.py
 
     #- name: Run Unit Tests
     #  run: |
