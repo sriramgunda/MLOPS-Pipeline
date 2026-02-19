@@ -43,24 +43,41 @@ def initialize_mlflow(experiment_name=None, tracking_uri=None):
         tracking_uri: MLflow tracking server URI (default: local)
     """
     try:
-        # Set tracking URI
+        # Determine tracking URI from config or defaults
+        config = load_experiment_config()
         if tracking_uri is None:
-            config = load_experiment_config()
             tracking_uri = config.get('artifacts', {}).get('mlflow_uri', MLFLOW_TRACKING_URI)
-        
-        mlflow.set_tracking_uri(tracking_uri)
-        
-        # Set experiment
-        if experiment_name is None:
-            config = load_experiment_config()
-            experiment_name = config.get('artifacts', {}).get('experiment_name', MLFLOW_EXPERIMENT_NAME)
-        
-        mlflow.set_experiment(experiment_name)
-        logger.info(f"MLflow initialized - URI: {tracking_uri}, Experiment: {experiment_name}")
-        
+
+        # Try to set remote tracking URI and experiment; if it fails, fall back to local file store
+        try:
+            mlflow.set_tracking_uri(tracking_uri)
+            # Determine experiment name
+            if experiment_name is None:
+                experiment_name = config.get('artifacts', {}).get('experiment_name', MLFLOW_EXPERIMENT_NAME)
+            mlflow.set_experiment(experiment_name)
+            logger.info(f"MLflow initialized - URI: {tracking_uri}, Experiment: {experiment_name}")
+            return
+        except Exception as e:
+            logger.warning(f"Could not initialize remote MLflow at {tracking_uri}: {e}")
+
+        # Fallback to local file-based tracking (mlruns directory)
+        try:
+            local_dir = Path(__file__).parent.parent.joinpath(MLFLOW_ARTIFACT_ROOT).absolute()
+            local_uri = local_dir.as_uri()
+            mlflow.set_tracking_uri(local_uri)
+            if experiment_name is None:
+                experiment_name = config.get('artifacts', {}).get('experiment_name', MLFLOW_EXPERIMENT_NAME)
+            mlflow.set_experiment(experiment_name)
+            logger.info(f"MLflow fallback initialized - URI: {local_uri}, Experiment: {experiment_name}")
+        except Exception as e:
+            logger.error(f"Failed to initialize MLflow even with local fallback: {e}")
+            logger.warning("Proceeding without MLflow tracking.")
+            # Do not raise; allow code to continue without MLflow
+            return
     except Exception as e:
-        logger.error(f"Error initializing MLflow: {e}")
-        raise
+        logger.error(f"Unexpected error initializing MLflow: {e}")
+        logger.warning("Proceeding without MLflow tracking.")
+        return
 
 
 def start_mlflow_run(run_name=None, tags=None, params=None):

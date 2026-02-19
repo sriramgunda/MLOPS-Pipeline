@@ -14,7 +14,7 @@ import logging
 from datetime import datetime
 
 try:
-    from mlflow_config import initialize_mlflow, load_experiment_config
+    from mlflow_config import initialize_mlflow, load_experiment_config, start_mlflow_run, end_mlflow_run
     from mlflow_artifacts import (
         get_predictions_and_labels,
         log_mlflow_artifacts,
@@ -37,6 +37,10 @@ except ImportError:
     def save_confusion_matrix(*args, **kwargs):
         return None
     def save_classification_report(*args, **kwargs):
+        return None
+    def start_mlflow_run(*args, **kwargs):
+        return None
+    def end_mlflow_run(*args, **kwargs):
         return None
 
 logger = logging.getLogger(__name__)
@@ -285,22 +289,27 @@ def train_cnn_pipeline(
     compile_model(cnn_model, learning_rate=0.001)
     
     # Training with optional MLflow tracking
+    run_context = None
     if mlflow_enabled:
         try:
-            # Set MLflow experiment 
-            mlflow.set_experiment(mlflow_config.get('experiment_name', 'cat_dog_classification'))
-            run_context = mlflow.start_run(run_name=f"mobilenet_v2_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+            run_name = f"mobilenet_v2_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            params = {
+                'epochs': epochs,
+                'model_name': 'mobilenet_v2',
+                'img_size': str(IMG_SIZE),
+                'seed': SEED,
+                'learning_rate': 0.001,
+                'optimizer': 'Adam',
+                'loss_function': 'binary_crossentropy'
+            }
+            run_context = start_mlflow_run(run_name=run_name, params=params)
         except Exception as e:
             logger.warning(f"Could not start MLflow run: {e}")
             logger.warning("Continuing training without MLflow...")
             mlflow_enabled = False
             run_context = None
-    else:
-        run_context = None
     
     try:
-        if mlflow_enabled and run_context:
-            run_context.__enter__()
         
         # Log training parameters
         if mlflow_enabled:
@@ -428,7 +437,7 @@ def train_cnn_pipeline(
     finally:
         if mlflow_enabled and run_context:
             try:
-                run_context.__exit__(None, None, None)
+                end_mlflow_run()
             except Exception as e:
                 logger.warning(f"Error closing MLflow run: {e}")
     
