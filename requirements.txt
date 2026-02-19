@@ -5,8 +5,10 @@ pandas
 scikit-learn
 opencv-python
 Pillow
+matplotlib
 seaborn
 keras
+dvc
 
 # Deep Learning & Transfer Learning
 tensorflow-hub
@@ -19,6 +21,11 @@ pydantic
 
 # Experiment Tracking
 mlflow
+mlflow[extras]
+
+# Dataset Versioning
+dvc
+dvc[gs]
 
 # Monitoring & Metrics
 prometheus-client
@@ -34,3 +41,4 @@ albumentations
 python-dotenv
 pytz
 kaggle>=1.5.16
+tqdm

@@ -3,37 +3,45 @@ stages:
     cmd: python src/data_loader.py
     deps:
       - src/data_loader.py
+      - src/kaggle.json
     outs:
-      - data/cats_and_dogs:
-          cache: true
+      - data/cat-and-dog.zip
 
-  data_preprocess:
-    cmd: python src/data_preprocessing.py
+  data_extraction:
+    cmd: python src/data_loader.py
     deps:
-      - data/cats_and_dogs
-      - src/data_preprocessing.py
+      - src/data_loader.py
+      - data/cat-and-dog.zip
     outs:
-      - data/cats_and_dogs/train:
-          cache: false
-      - data/cats_and_dogs/val:
-          cache: false
-      - data/cats_and_dogs/test:
-          cache: false
+      - data/training_set
+      - data/test_set
 
-  train_model:
+  data_organization:
+    cmd: python src/data_loader.py
+    deps:
+      - src/data_loader.py
+      - data/training_set
+      - data/test_set
+    outs:
+      - data/train
+      - data/validation
+      - data/test
+
+  model_training:
     cmd: python src/train_cnn.py
     deps:
-      - data/cats_and_dogs
       - src/train_cnn.py
       - src/data_preprocessing.py
-    outs:
-      - artifacts/model.h5:
-          cache: true
-    metrics:
-      - artifacts/metrics.json:
-          cache: false
+      - src/main.py
+      - data/train
+      - data/validation
+      - data/test
     params:
-      - train_config:
-          - epochs
-          - batch_size
-          - learning_rate
+      - epochs
+      - batch_size
+      - learning_rate
+    outs:
+      - models/mobilenet_v2.keras
+    metrics:
+      - metrics.json:
+          cache: false

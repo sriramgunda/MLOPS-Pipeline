@@ -99,6 +99,83 @@ python scripts/smoke_test.py --api-url http://localhost:8000 --timeout 30
 | Deploy K8s | `kubectl apply -f k8s/` |
 | Smoke tests | `python scripts/smoke_test.py` |
 
+## MLOps Setup & Configuration
+
+### Quick MLOps Initialization
+
+```bash
+# Initialize MLOps infrastructure (DVC + MLflow)
+python setup_mlops.py
+
+# Or manually initialize:
+dvc init
+mlflow ui  # Start experiment tracking UI on http://localhost:5000
+```
+
+### Run Complete Pipeline with DVC
+
+```bash
+# Execute entire reproducible pipeline (all 4 stages)
+dvc repro
+
+# Or run specific stages:
+dvc repro data_download    # Download from Kaggle
+dvc repro data_extraction  # Extract ZIP
+dvc repro data_organization # Organize 80/10/10 split
+dvc repro model_training   # Train MobileNetV2 with MLflow
+
+# Check pipeline status
+dvc status
+dvc dag  # View pipeline visualization
+```
+
+### Monitor Experiments in MLflow UI
+
+```bash
+# MLflow runs automatically during training
+# Access at http://localhost:5000
+
+# View metrics:
+# - Training loss/accuracy
+# - Validation loss/accuracy
+# - Test loss/accuracy
+
+# Download artifacts:
+# - Trained model (.keras format)
+# - Training history
+# - Configuration used
+```
+
+### Configuration Management
+
+Update hyperparameters in `params.yaml`:
+```yaml
+epochs: 1              # Number of training epochs
+batch_size: 32        # Training batch size
+learning_rate: 0.001  # Optimizer learning rate
+
+# Dataset paths
+data:
+  train_dir: "data/train"        # 80% of data
+  val_dir: "data/validation"     # 10% of data
+  test_dir: "data/test"          # 10% of data
+
+# Model configuration
+model:
+  architecture: "mobilenet_v2"   # Using MobileNetV2 transfer learning
+  pretrained: true               # Use ImageNet weights
+  freeze_base: true              # Freeze base model
+  dropout: 0.3                   # Dropout regularization
+  img_size: [224, 224]          # Input image size
+```
+
+After modifying parameters, DVC will re-run only affected stages:
+```bash
+dvc repro  # Automatically re-runs necessary stages
+```
+
+For complete MLOps documentation, see [MLOps_SETUP.md](MLOps_SETUP.md).
+
 ## Project Structure
 
 ```
@@ -110,7 +187,10 @@ python scripts/smoke_test.py --api-url http://localhost:8000 --timeout 30
 │   ├── data_preprocessing.py   # Image preprocessing, augmentation, normalization
 │   ├── train_cnn.py           # CNN model training with MLflow tracking
 │   ├── train_automl.py         # Legacy AutoML training (can be repurposed)
-│   └── predict.py              # Inference script
+│   ├── predict.py              # Inference script
+│   ├── mlflow_config.py        # MLflow initialization and utilities
+│   ├── dvc_utils.py            # DVC pipeline utilities
+│   └── CatDog.ipynb            # Interactive notebook with complete pipeline
 ├── tests/
 │   ├── test_data_processing.py # Unit tests for image preprocessing
 │   └── test_model_training.py  # Unit tests for model inference
@@ -123,10 +203,18 @@ python scripts/smoke_test.py --api-url http://localhost:8000 --timeout 30
 ├── .github/
 │   └── workflows/
 │       └── ci-cd.yml           # GitHub Actions CI/CD pipeline
+├── documentation/              # Documentation and reports
+├── dvc.yaml                    # DVC pipeline definition (4 stages)
+├── params.yaml                 # Configuration parameters (epochs, model, data paths)
+├── .dvcignore                  # DVC ignore patterns
+├── .mlflowconfig               # MLflow server configuration
+├── .gitignore                  # Git ignore patterns (DVC cache, MLflow, models)
 ├── docker-compose.yml          # Docker Compose for local development
 ├── Dockerfile                  # Application container image
 ├── requirements.txt            # Python dependencies with pinned versions
 ├── prometheus.yml              # Prometheus scrape configuration
+├── setup_mlops.py              # MLOps initialization script
+├── setup.sh                    # Environment setup script
 └── README.md                   # This file
 ```
 
@@ -156,16 +244,19 @@ Choose one approach based on your workflow:
 
 **Setup**:
 ```bash
-# Download dataset to data/cats_and_dogs/
-python src/data_loader.py
+# Initialize DVC (one-time setup)
+dvc init
 
-# Track dataset with DVC
-dvc add data/cats_and_dogs/
+# Pipeline automatically configured in dvc.yaml with 4 stages:
+# 1. data_download  - Download from Kaggle
+# 2. data_extraction - Extract ZIP file
+# 3. data_organization - Split into 80/10/10 (train/val/test)
+# 4. model_training - Train MobileNetV2 with MLflow tracking
 
-# This creates data/cats_and_dogs.dvc (commit to Git)
-# And .gitignore is updated to ignore actual data files
+# Run entire pipeline
+dvc repro
 
-# Push to DVC remote storage
+# Push to DVC remote storage (optional)
 dvc remote add -d myremote /path/to/dvc-storage
 dvc push
 
@@ -174,7 +265,71 @@ dvc pull
 
 # View dataset history & pipelines
 dvc dag
-dvc repro  # Run entire reproducible pipeline
+dvc status
+```
+
+**DVC Pipeline Stages** (defined in `dvc.yaml`):
+
+```yaml
+stages:
+  data_download:
+    cmd: python src/data_loader.py download
+    deps:
+      - src/data_loader.py
+      - src/kaggle.json
+    outs:
+      - data/cat-and-dog.zip
+    
+  data_extraction:
+    cmd: python src/data_loader.py extract
+    deps:
+      - data/cat-and-dog.zip
+    outs:
+      - data/training_set
+      - data/test_set
+    
+  data_organization:
+    cmd: python src/data_loader.py organize
+    deps:
+      - data/training_set
+      - data/test_set
+    outs:
+      - data/train  # 80%
+      - data/validation  # 10%
+      - data/test  # 10%
+    
+  model_training:
+    cmd: python src/train_cnn.py
+    deps:
+      - src/train_cnn.py
+      - data/train
+      - data/validation
+      - data/test
+    params:
+      - epochs
+      - batch_size
+      - learning_rate
+    outs:
+      - models/mobilenet_v2.keras
+    metrics:
+      - metrics.json
+```
+
+**Data Directory Structure**:
+```
+data/
+├── cat-and-dog.zip           # Downloaded from Kaggle
+├── training_set/             # Extracted training (includes cats & dogs)
+├── test_set/                 # Extracted test (includes cats & dogs)
+├── train/                    # 80% of all data
+│   ├── cats/
+│   └── dogs/
+├── validation/               # 10% of all data
+│   ├── cats/
+│   └── dogs/
+└── test/                     # 10% of all data
+    ├── cats/
+    └── dogs/
 ```
 
 **Advantages**:
@@ -184,6 +339,7 @@ dvc repro  # Run entire reproducible pipeline
 - [YES] Works with S3, GCS, Azure, local storage
 - [YES] Lightweight metadata (`.dvc` files in Git)
 - [YES] Native MLOps features
+- [YES] Automatic reproducibility with `dvc repro`
 
 Setup in `.dvc/config`. Remote: `./dvc-storage` (local) or S3/GCS/Azure.
 
@@ -209,17 +365,17 @@ git lfs install
 
 **Setup**:
 ```bash
-# Download dataset
+# Download dataset (creates data/train, data/validation, data/test)
 python src/data_loader.py
 
 # Track large files with Git LFS
-git lfs track "data/cats_and_dogs/**/*.jpg"
-git lfs track "data/cats_and_dogs/**/*.png"
+git lfs track "data/**/*.jpg"
+git lfs track "data/**/*.png"
 git add .gitattributes
 
 # Commit everything normally
 git add data/
-git commit -m "Add cats and dogs dataset"
+git commit -m "Add cats and dogs dataset (80/10/10 split)"
 git push origin main
 
 # Subsequent pulls download LFS files automatically
@@ -257,20 +413,33 @@ git lfs pull
 ---
 
 #### 2. Model Building
-- **Architecture**: CNN with 3 convolutional blocks, BatchNorm, MaxPool, Dropout, Dense layers, Sigmoid output
-- **Transfer Learning**: MobileNetV2 option available
-- **Model Format**: `.h5` (Keras format)
+- **Architecture**: MobileNetV2 transfer learning with frozen base + custom head
+- **Base Model**: ImageNet pre-trained weights
+- **Custom Head**: GlobalAveragePooling2D → Dropout(0.3) → Dense(1, sigmoid)
+- **Input Size**: 224×224 RGB images
+- **Model Format**: `.keras` (TensorFlow native format)
+- **Output**: Binary classification (Cats vs Dogs)
 
 #### 3. Experiment Tracking with MLflow
 
-```python
-mlflow.set_experiment("Cats_vs_Dogs_Classification")
+All training runs are automatically logged to MLflow with:
+- **Run ID**: Unique identifier for each training run
+- **Parameters**: epochs, batch_size, learning_rate, model_name, seed
+- **Metrics**: train_loss, train_accuracy, val_loss, val_accuracy, test_loss, test_accuracy
+- **Artifacts**: Model weights (.keras), training history
 
-with mlflow.start_run() as run:
-    mlflow.log_param("learning_rate", 0.001)
-    mlflow.log_param("batch_size", 32)
-    mlflow.log_metric("test_accuracy", 0.95)
-    mlflow.keras.log_model(model, "model")
+```python
+# Training automatically integrates MLflow (see src/train_cnn.py)
+from src.train_cnn import train_cnn_pipeline
+
+model, history, test_loss, test_acc = train_cnn_pipeline(
+    train_ds, val_ds, test_ds,
+    data_augmentation=augmentation,
+    epochs=1  # Configurable via params.yaml
+)
+
+# View experiments in MLflow UI:
+# mlflow ui  # http://localhost:5000
 ```
 
 **Track**:

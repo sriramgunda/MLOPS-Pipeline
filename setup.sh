@@ -68,11 +68,10 @@ print_status "Dependencies installed"
 
 # 4. Create necessary directories
 print_info "Creating project directories..."
-mkdir -p data/cats_and_dogs/{train,val,test}/{cats,dogs}
-mkdir -p artifacts
-mkdir -p mlruns
-mkdir -p plots
-mkdir -p logs
+mkdir -p data/{train,validation,test}/{cats,dogs}
+mkdir -p data/training_set
+mkdir -p data/test_set
+mkdir -p models artifacts logs mlruns plots
 print_status "Directories created"
 
 # 5. Setup Git
@@ -166,34 +165,47 @@ EOF
 chmod +x deploy_k8s.sh
 print_status "deploy_k8s.sh created"
 
-# 9. Run tests
+# 9. Initialize MLOps Infrastructure
+print_info "Initializing MLOps (DVC + MLflow)..."
+if python -c "from src import dvc_utils; dvc_utils.initialize_dvc()" 2>/dev/null; then
+    print_status "DVC initialized"
+else
+    print_info "DVC initialization handled separately (run: dvc init)"
+fi
+
+# 10. Run tests
 print_info "Running tests..."
 pytest tests/ -v --tb=short 2>&1 | tail -20
 print_status "Tests completed"
 
-# 10. Print summary
+# 11. Print summary
 echo ""
 echo "=================================="
 echo -e "${GREEN}Setup Complete!${NC}"
 echo "=================================="
 print_info "Next steps:"
 echo ""
-echo "1. Download dataset:"
-echo "   python src/data_loader.py"
+echo "1. Initialize MLOps:"
+echo "   python setup_mlops.py"
 echo ""
-echo "2. Train model:"
-echo "   python src/train_cnn.py"
+echo "2. Download dataset and train:"
+echo "   dvc repro"
 echo ""
-echo "3. Start local development:"
-echo "   ./start_dev.sh"
+echo "3. Or run step-by-step:"
+echo "   python src/data_loader.py (to download)"
+echo "   python src/train_cnn.py (to train)"
 echo ""
-echo "4. Deploy to Kubernetes:"
+echo "4. Monitor experiments:"
+echo "   mlflow ui  # Open http://localhost:5000"
+echo ""
+echo "5. Start local API service:"
+echo "   uvicorn app.main:app --reload --port 8000"
+echo ""
+echo "6. Deploy to Kubernetes:"
 echo "   ./deploy_k8s.sh"
 echo ""
-echo "5. Access services locally:"
-echo "   API:     http://localhost:8000"
-echo "   MLflow:  http://localhost:5000"
-echo ""
-echo "Documentation: See README.md"
+echo "Documentation:"
+echo "  - README.md: Project overview"
+echo "  - MLOps_SETUP.md: MLOps infrastructure guide"
 echo ""
 
