@@ -2,9 +2,9 @@ name: Heart Disease ML CI Pipeline
 
 on:
   push:
-    branches: [ "sriram" ]
+    branches: [ "kumaravanish-patch-2" ]
   pull_request:
-    branches: [ "sriram" ]
+    branches: [ "kumaravanish-patch-2" ]
 
 jobs:
   build-test-train:
@@ -30,25 +30,25 @@ jobs:
 
     - name: Lint Code (flake8)
       run: |
-        flake8 src/train_automl.py || true
+        flake8 src/train_cnn.py || true
 
     - name: Run Unit Tests
       run: |
         pytest tests/
 
-    - name: Run EDA
-      run: |
-        python src/auto_eda.py
+    #- name: Run EDA
+    #  run: |
+    #    python src/auto_eda.py
 
-    - name: Upload EDA Reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: eda-reports
-        path: plots/
+    #- name: Upload EDA Reports
+    #  uses: actions/upload-artifact@v4
+    #  with:
+    #    name: eda-reports
+    #    path: plots/
       
     - name: Train AutoML Model
       run: |
-        python src/train_automl.py
+        python src/train_cnn.py
       env:
         MLFLOW_TRACKING_URI: ./mlruns
 
