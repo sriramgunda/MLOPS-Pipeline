@@ -435,6 +435,41 @@ def train_cnn_pipeline(
     return cnn_model, history, test_loss, test_acc
 
 
-if __name__ == "__main__":
+def main():
+    """Prepare data and run the CNN training pipeline as a standalone script."""
     logging.basicConfig(level=logging.INFO)
-    logger.info("CNN training module initialized.")
+    logger.info("Starting standalone CNN training...")
+
+    try:
+        # Prepare dataset (downloads/extracts/organizes if needed)
+        from data_loader import main as prepare_data
+        from data_preprocessing import load_train_val_test_datasets, create_data_augmentation
+
+        paths = prepare_data()
+        train_dir = paths.get("train")
+        val_dir = paths.get("validation")
+        test_dir = paths.get("test")
+
+        if not (train_dir and val_dir and test_dir):
+            logger.error("Dataset directories not available. Ensure data preparation succeeded.")
+            return
+
+        # Build augmentation and datasets
+        augmentation = create_data_augmentation()
+        train_ds, val_ds, test_ds, class_names = load_train_val_test_datasets(
+            train_dir, val_dir, test_dir, augment_train=True
+        )
+
+        # Run training pipeline
+        model, history, test_loss, test_acc = train_cnn_pipeline(
+            train_ds, val_ds, test_ds, data_augmentation=augmentation, epochs=EPOCHS
+        )
+
+        logger.info(f"Standalone training finished. Test accuracy: {test_acc:.4f}")
+
+    except Exception as e:
+        logger.error(f"Error running standalone training: {e}", exc_info=True)
+
+
+if __name__ == "__main__":
+    main()
