@@ -1,4 +1,4 @@
-name: Heart Disease ML CI Pipeline
+name: Cats and Dogs Classifier CI Pipeline
 
 on:
   push:
