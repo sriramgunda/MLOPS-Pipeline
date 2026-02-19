@@ -2,6 +2,8 @@
 CNN model training module
 Handles baseline CNN and transfer learning model training with MLflow tracking
 """
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 import tensorflow as tf
 from tensorflow.keras import layers, models
@@ -9,7 +11,6 @@ import mlflow
 import mlflow.keras
 import mlflow.tensorflow
 import logging
-import os
 from datetime import datetime
 
 try:

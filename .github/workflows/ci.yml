@@ -83,7 +83,7 @@ jobs:
 
     - name: Build and Push Docker Image
       run: |
-        IMAGE_ID=ghcr.io/${{ github.repository_owner }}/heart-disease-api
+        IMAGE_ID=ghcr.io/${{ github.repository_owner }}/cats_dogs_api
         # Convert to lowercase
         IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
         VERSION=latest
