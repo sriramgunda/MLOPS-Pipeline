@@ -33,3 +33,4 @@ albumentations
 # Utilities
 python-dotenv
 pytz
+kaggle>=1.5.16
