@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 IMG_SIZE = (224, 224)
-EPOCHS = 1
+EPOCHS = 5
 SEED = 42
 
 

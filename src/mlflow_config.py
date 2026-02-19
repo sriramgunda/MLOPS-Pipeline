@@ -48,17 +48,47 @@ def initialize_mlflow(experiment_name=None, tracking_uri=None):
         if tracking_uri is None:
             tracking_uri = config.get('artifacts', {}).get('mlflow_uri', MLFLOW_TRACKING_URI)
 
-        # Try to set remote tracking URI and experiment; if it fails, fall back to local file store
+        # Try a light-weight TCP check for remote MLflow before using the MLflow client.
+        # This prevents the MLflow client (requests/urllib3) from performing multiple retries
+        # when the remote server is unreachable.
         try:
-            mlflow.set_tracking_uri(tracking_uri)
-            # Determine experiment name
-            if experiment_name is None:
-                experiment_name = config.get('artifacts', {}).get('experiment_name', MLFLOW_EXPERIMENT_NAME)
-            mlflow.set_experiment(experiment_name)
-            logger.info(f"MLflow initialized - URI: {tracking_uri}, Experiment: {experiment_name}")
-            return
-        except Exception as e:
-            logger.warning(f"Could not initialize remote MLflow at {tracking_uri}: {e}")
+            from urllib.parse import urlparse
+            parsed = urlparse(tracking_uri)
+            is_http = parsed.scheme in ("http", "https")
+        except Exception:
+            is_http = False
+
+        if is_http:
+            try:
+                host = parsed.hostname
+                port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+                import socket
+                sock = socket.create_connection((host, port), timeout=1)
+                sock.close()
+            except Exception as e:
+                logger.warning(f"MLflow server {tracking_uri} appears unreachable (quick TCP check failed): {e}")
+                logger.warning("Skipping remote MLflow initialization and falling back to local file store.")
+            else:
+                try:
+                    mlflow.set_tracking_uri(tracking_uri)
+                    if experiment_name is None:
+                        experiment_name = config.get('artifacts', {}).get('experiment_name', MLFLOW_EXPERIMENT_NAME)
+                    mlflow.set_experiment(experiment_name)
+                    logger.info(f"MLflow initialized - URI: {tracking_uri}, Experiment: {experiment_name}")
+                    return
+                except Exception as e:
+                    logger.warning(f"Could not initialize remote MLflow at {tracking_uri}: {e}")
+        else:
+            # Non-http URIs (e.g., file://) — try directly
+            try:
+                mlflow.set_tracking_uri(tracking_uri)
+                if experiment_name is None:
+                    experiment_name = config.get('artifacts', {}).get('experiment_name', MLFLOW_EXPERIMENT_NAME)
+                mlflow.set_experiment(experiment_name)
+                logger.info(f"MLflow initialized - URI: {tracking_uri}, Experiment: {experiment_name}")
+                return
+            except Exception as e:
+                logger.warning(f"Could not initialize MLflow at {tracking_uri}: {e}")
 
         # Fallback to local file-based tracking (mlruns directory)
         try:
