@@ -67,13 +67,13 @@ jobs:
 
     - name: Prepare Model for Docker
       run: |
-        # The training step produces 'best_model_artifacts/inference_pipeline.pkl'
+        # The training step produces 'models/mobilenet_v2.keras'
         # We copy it to 'app/model.pkl' so the Dockerfile can pick it up
-        if [ -f "best_model_artifacts/inference_pipeline.pkl" ]; then
-          cp best_model_artifacts/inference_pipeline.pkl app/model.pkl
+        if [ -f "models/mobilenet_v2.keras" ]; then
+          cp models/mobilenet_v2.keras app/mobilenet_v2.keras
           echo "Model prepared successfully from artifacts."
         else
-          echo "Error: inference_pipeline.pkl not found in best_model_artifacts/"
+          echo "Error: mobilenet_v2.keras not found in models/"
           exit 1
         fi
 
