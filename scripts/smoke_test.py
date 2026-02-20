@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class APISmokeTests:
     """API Smoke tests for health check and predictions"""
     
-    def __init__(self, api_url="http://localhost:8000", timeout=10):
+    def __init__(self, api_url="http://127.0.0.1:80", timeout=10):
         self.api_url = api_url
         self.timeout = timeout
         self.session = requests.Session()
@@ -161,8 +161,8 @@ Examples:
     parser.add_argument(
         "--api-url",
         type=str,
-        default="http://localhost:8000",
-        help="API URL (default: http://localhost:8000)"
+        default="http://127.0.0.1:80",
+        help="API URL (default: http://127.0.0.1:80)"
     )
     parser.add_argument(
         "--wait",
