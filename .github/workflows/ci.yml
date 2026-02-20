@@ -39,9 +39,9 @@ jobs:
       run: |
         python src/run_dvc.py
 
-    #- name: Run Unit Tests
-    #  run: |
-    #    pytest tests/
+    - name: Run Unit Tests
+      run: |
+        pytest tests/
 
     #- name: Run EDA
     #  run: |
