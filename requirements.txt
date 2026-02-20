@@ -2,11 +2,11 @@
 tensorflow>=2.20.0,<2.21
 numpy>=2.2.0,<2.3
 pandas>=2.3.0,<2.4
-scikit-learn>=1.8.0,<1.9
-opencv-python>=4.13.0.0,<4.14
-Pillow>=12.1.0,<13
-matplotlib>=3.10.0,<3.11
-seaborn>=0.13.0,<0.14
+scikit-learn
+opencv-python
+Pillow
+matplotlib
+seaborn
 keras>=3.13.0,<3.14
 dvc>=3.66.0,<3.67
 
