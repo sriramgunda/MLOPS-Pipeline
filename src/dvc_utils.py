@@ -11,6 +11,36 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
+def _run_and_stream(cmd, cwd=None):
+    """Run a command and stream stdout/stderr to logger and stdout.
+
+    Returns tuple (returncode, combined_output_str).
+    """
+    try:
+        if cwd is None:
+            cwd = os.getcwd()
+
+        if isinstance(cmd, (list, tuple)):
+            proc = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+        else:
+            proc = subprocess.Popen(cmd, shell=True, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+
+        collected = []
+        # Stream lines as they arrive
+        for line in proc.stdout:
+            text = line.rstrip("\n")
+            collected.append(text)
+            logger.info(text)
+            print(text)
+
+        proc.wait()
+        return proc.returncode, "\n".join(collected)
+
+    except Exception as e:
+        logger.exception(f"Failed to run command {cmd}: {e}")
+        return 1, str(e)
+
 # DVC Configuration
 DVC_CACHE_DIR = ".dvc/cache"
 DVC_REMOTE_NAME = "myremote"  # For future configuration
@@ -44,24 +74,16 @@ def initialize_dvc():
             logger.info("DVC already initialized")
             return True
         
-        result = subprocess.run(
-            ["dvc", "init"],
-            cwd=os.getcwd(),
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode == 0:
+        rc, out = _run_and_stream(["dvc", "init"], cwd=os.getcwd())
+
+        if rc == 0:
             logger.info("DVC initialized successfully")
             # Enable autostage
-            subprocess.run(
-                ["dvc", "config", "core.autostage", "true"],
-                cwd=os.getcwd(),
-                capture_output=True
-            )
+            _run_and_stream(["dvc", "config", "core.autostage", "true"], cwd=os.getcwd())
             return True
         else:
-            logger.error(f"DVC initialization failed: {result.stderr}")
+            logger.error(f"DVC initialization failed")
+            logger.debug(out)
             return False
             
     except Exception as e:
@@ -82,23 +104,22 @@ def run_dvc_pipeline(stages=None):
             return False
         
         cmd = ["dvc", "repro"]
+        # If specific stages are provided, pass them as targets to dvc repro
+        # e.g. `dvc repro stage_name` or multiple stage names
         if stages:
-            for stage in stages:
-                cmd.extend(["--single-item", stage])
+            if isinstance(stages, (list, tuple)):
+                cmd.extend(list(stages))
+            else:
+                cmd.append(str(stages))
         
-        result = subprocess.run(
-            cmd,
-            cwd=os.getcwd(),
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode == 0:
-            logger.info(f"DVC pipeline executed successfully")
-            logger.debug(result.stdout)
+        rc, out = _run_and_stream(cmd, cwd=os.getcwd())
+        if rc == 0:
+            logger.info("DVC pipeline executed successfully")
+            logger.debug(out)
             return True
         else:
-            logger.error(f"DVC pipeline execution failed: {result.stderr}")
+            logger.error("DVC pipeline execution failed")
+            logger.debug(out)
             return False
             
     except Exception as e:
@@ -120,18 +141,13 @@ def add_dvc_remote(remote_name=None, remote_url=None):
         
         cmd = ["dvc", "remote", "add", "-d", remote_name, remote_url or "data/remote"]
         
-        result = subprocess.run(
-            cmd,
-            cwd=os.getcwd(),
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode == 0:
+        rc, out = _run_and_stream(cmd, cwd=os.getcwd())
+        if rc == 0:
             logger.info(f"DVC remote '{remote_name}' added successfully")
             return True
         else:
-            logger.warning(f"Could not add DVC remote: {result.stderr}")
+            logger.warning(f"Could not add DVC remote")
+            logger.debug(out)
             return False
             
     except Exception as e:
@@ -142,15 +158,9 @@ def add_dvc_remote(remote_name=None, remote_url=None):
 def get_dvc_status():
     """Get DVC pipeline status"""
     try:
-        result = subprocess.run(
-            ["dvc", "status"],
-            cwd=os.getcwd(),
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode == 0:
-            status = result.stdout.strip()
+        rc, out = _run_and_stream(["dvc", "status"], cwd=os.getcwd())
+        if rc == 0:
+            status = out.strip()
             if not status:
                 logger.info("Pipeline is up to date")
                 return "up_to_date"
@@ -158,7 +168,8 @@ def get_dvc_status():
                 logger.info(f"Pipeline status:\n{status}")
                 return "needs_update"
         else:
-            logger.error(f"Error checking DVC status: {result.stderr}")
+            logger.error("Error checking DVC status")
+            logger.debug(out)
             return None
             
     except Exception as e:
@@ -169,18 +180,13 @@ def get_dvc_status():
 def create_dvc_artifacts_lock():
     """Create/Update DVC lock file for reproducibility"""
     try:
-        result = subprocess.run(
-            ["dvc", "lock"],
-            cwd=os.getcwd(),
-            capture_output=True,
-            text=True
-        )
-        
-        if result.returncode == 0:
+        rc, out = _run_and_stream(["dvc", "lock"], cwd=os.getcwd())
+        if rc == 0:
             logger.info("DVC lock file created/updated")
             return True
         else:
-            logger.warning(f"Could not create DVC lock: {result.stderr}")
+            logger.warning("Could not create DVC lock")
+            logger.debug(out)
             return False
             
     except Exception as e:

@@ -35,9 +35,9 @@ jobs:
       run: |
         flake8 src/train_cnn.py || true
     
-    - name: Data Preprocessing
+    - name: DVC - Data Preparation
       run: |
-        python src/data_loader.py
+        python src/run_dvc.py
 
     #- name: Run Unit Tests
     #  run: |
