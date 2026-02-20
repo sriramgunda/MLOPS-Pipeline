@@ -7,8 +7,8 @@ opencv-python
 Pillow
 matplotlib
 seaborn
-keras>=3.13.0,<3.14
-dvc>=3.66.0,<3.67
+keras
+dvc
 
 # Deep Learning & Transfer Learning
 tensorflow-hub>=0.16.0,<0.17
