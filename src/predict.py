@@ -57,7 +57,7 @@ class Predictor:
             img_array = np.array(img, dtype=np.float32)
             
             # Normalize (0-1 range)
-            img_array = img_array / 255.0
+            #img_array = img_array / 255.0
             
             # Add batch dimension
             img_array = np.expand_dims(img_array, axis=0)
@@ -144,8 +144,8 @@ class Predictor:
                 image_tensor = tf.expand_dims(image_tensor, axis=0)
             
             # Normalize if needed
-            if tf.reduce_max(image_tensor) > 1.0:
-                image_tensor = image_tensor / 255.0
+            #if tf.reduce_max(image_tensor) > 1.0:
+            #    image_tensor = image_tensor / 255.0
             
             # Make prediction
             prediction = self.model.predict(image_tensor, verbose=0)
