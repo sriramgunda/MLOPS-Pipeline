@@ -4,6 +4,8 @@
 
 MLOps pipeline for binary image classification (Cats vs Dogs). Includes model training, data versioning, containerization, CI/CD, and monitoring on Kubernetes.
 
+NOTE: This project uses DVC only for dataset versioning and tracking pre-processed data (download, extraction, organization). Model training and hyperparameter experimentation are run outside DVC (see "Train model" step). Do not track model parameters in DVC.
+
 ## Architecture Diagram
 
 ```
@@ -32,7 +34,7 @@ cd MLOPS-Pipeline
 bash setup.sh
 
 # Windows
-./setup.bat
+python setup_mlops.py  # Run the cross-platform setup script on Windows (or run setup.sh under WSL)
 ```
 
 ### 2. Download Dataset & Train Model
@@ -41,6 +43,7 @@ bash setup.sh
 python src/data_loader.py
 
 # Train CNN model with MLflow tracking
+# Train models outside DVC (models and parameters are not tracked by DVC)
 python src/train_cnn.py
 
 # View experiments
@@ -112,21 +115,23 @@ dvc init
 mlflow ui  # Start experiment tracking UI on http://localhost:5000
 ```
 
-### Run Complete Pipeline with DVC
+### Run Complete Pipeline with DVC (dataset & preprocessing only)
+
+This repository uses DVC to version datasets and pre-processed artifacts (download, extraction, organization). Model training is not part of the DVC pipeline and should be executed separately.
+
+You can run the dataset pipeline with the included CLI or with DVC directly:
 
 ```bash
-# Execute entire reproducible pipeline (all 4 stages)
-dvc repro
+# Initialize and run with the helper CLI (recommended)
+python -m src.run_dvc --init        # initialize DVC (one-time)
+python -m src.run_dvc               # reproduce dataset/preprocessing stages
 
-# Or run specific stages:
-dvc repro data_download    # Download from Kaggle
-dvc repro data_extraction  # Extract ZIP
-dvc repro data_organization # Organize 80/10/10 split
-dvc repro model_training   # Train MobileNetV2 with MLflow
+# Or use DVC directly (three stages tracked):
+dvc repro                            # runs data_download, data_extraction, data_organization
 
-# Check pipeline status
+# Check pipeline status and visualize
 dvc status
-dvc dag  # View pipeline visualization
+dvc dag
 ```
 
 ### Monitor Experiments in MLflow UI
@@ -298,21 +303,7 @@ stages:
       - data/validation  # 10%
       - data/test  # 10%
     
-  model_training:
-    cmd: python src/train_cnn.py
-    deps:
-      - src/train_cnn.py
-      - data/train
-      - data/validation
-      - data/test
-    params:
-      - epochs
-      - batch_size
-      - learning_rate
-    outs:
-      - models/mobilenet_v2.keras
-    metrics:
-      - metrics.json
+  # Note: model_training stage removed — model training is executed outside DVC
 ```
 
 **Data Directory Structure**:
@@ -1008,19 +999,5 @@ docker logs prometheus
 
 ## CI/CD Status
 
-[![CI Pipeline](https://github.com/username/cats-dogs-mlops/workflows/CI%20Pipeline/badge.svg)](https://github.com/username/cats-dogs-mlops/actions)
+[![CI Pipeline]](https://github.com/sriramgunda/MLOPS-Pipeline/actions)
 
----
-
-## License
-
-MIT License - See LICENSE file
-
----
-
-## Contact & Support
-
-For issues, questions, or contributions:
-- Open an issue on GitHub
-- Contact: your.email@example.com
-- Reference assignment: MLOps Assignment 2 (S1-25_AIMLCZG523)
