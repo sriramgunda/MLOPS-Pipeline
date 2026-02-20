@@ -22,7 +22,7 @@ spec:
       - name: ghcr-secret
       containers:
       - name: cats-dogs-api
-        image: ghcr.io/sriramgunda/cats-dogs-classifier:latest
+        image: ghcr.io/sriramgunda/cats_dogs_api:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8000

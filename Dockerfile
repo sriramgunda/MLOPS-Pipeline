@@ -15,7 +15,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app/ ./app/
-COPY scripts/ ./app/smoke_test.py
+COPY scripts/smoke_test.py ./app/smoke_test.py
 COPY src/ ./src/
 
 # Create directories for artifacts
@@ -30,6 +30,3 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Run FastAPI application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-CMD ["python", "smoke_test.py"]
-
