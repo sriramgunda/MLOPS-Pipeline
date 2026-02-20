@@ -1,17 +1,17 @@
 # Core Data Science & ML
-tensorflow==2.20.0
-numpy==2.4.2
-pandas==2.3.3
-scikit-learn==1.8.0
-opencv-python==4.13.0.92
-Pillow==12.1.1
-matplotlib==3.10.8
-seaborn==0.13.2
-keras==3.13.2
-dvc==3.66.1
+tensorflow>=2.20.0
+numpy>=2.4.2
+pandas>=2.3.3
+scikit-learn>=1.8.0
+opencv-python>=4.13.0.92
+Pillow>=12.1.1
+matplotlib>=3.10.8
+seaborn>=0.13.2
+keras>=3.13.2
+dvc>=3.66.1
 
 # Deep Learning & Transfer Learning
-tensorflow-hub==0.16.1
+tensorflow-hub>=0.16.1
 
 # API & Serving
 fastapi
