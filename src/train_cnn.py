@@ -3,7 +3,7 @@ CNN model training module
 Handles baseline CNN and transfer learning model training with MLflow tracking
 """
 import os
-# Do not force CPU-only mode here; allow environment to control GPU visibility
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 import tensorflow as tf
 from tensorflow.keras import layers, models
@@ -47,10 +47,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 IMG_SIZE = (224, 224)
-# Reasonable defaults: short head training + fine-tuning
-EPOCHS = 2
-INITIAL_EPOCHS = 1
-FINE_TUNE_EPOCHS = max(1, EPOCHS - INITIAL_EPOCHS)
+EPOCHS = 3
 SEED = 42
 
 
@@ -77,15 +74,17 @@ def build_cnn_model(
         weights='imagenet'
     )
     
-    # Freeze base model weights by default; we'll optionally unfreeze for fine-tuning
+    # Freeze base model weights
     base_model.trainable = False
     
     # Build model
     layers_list = []
     
-    # Note: dataset pipeline already applies `Rescaling(1./255)` and optional augmentation.
-    # Avoid double-normalization or duplicate augmentation by not adding them here.
+    if data_augmentation is not None:
+        layers_list.append(data_augmentation)
+    
     layers_list.extend([
+        #layers.Rescaling(1./255),
         base_model,
         layers.GlobalAveragePooling2D(),
         layers.Dropout(dropout_rate),
@@ -93,10 +92,9 @@ def build_cnn_model(
     ])
     
     model = models.Sequential(layers_list)
-
+    
     logger.info("CNN model (MobileNetV2) created.")
-    # Return both model and base_model so training pipeline can unfreeze for fine-tuning
-    return model, base_model
+    return model
 
 
 def compile_model(model, learning_rate=0.001):
@@ -110,7 +108,7 @@ def compile_model(model, learning_rate=0.001):
     model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
         loss='binary_crossentropy',
-        metrics=['accuracy', tf.keras.metrics.AUC(name='auc')]
+        metrics=['accuracy']
     )
     logger.info(f"Model compiled with learning rate: {learning_rate}")
 
@@ -282,13 +280,12 @@ def train_cnn_pipeline(
         logger.warning("Continuing without MLflow tracking...")
         mlflow_enabled = False
     
-    # Build and compile CNN model (returns model and base_model)
-    cnn_model, base_model = build_cnn_model(
+    # Build and compile CNN model
+    cnn_model = build_cnn_model(
         data_augmentation=data_augmentation
     )
     cnn_model.summary()
-
-    # Initial compile for head training
+    
     compile_model(cnn_model, learning_rate=0.001)
     
     # Training with optional MLflow tracking
@@ -327,54 +324,14 @@ def train_cnn_pipeline(
             except Exception as e:
                 logger.warning(f"Could not log parameters to MLflow: {e}")
         
-        # Setup callbacks
-        callbacks = [
-            tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True),
-            tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=2, min_lr=1e-7),
-            tf.keras.callbacks.ModelCheckpoint('models/best_model.keras', monitor='val_loss', save_best_only=True, save_weights_only=False)
-        ]
-
-        # Stage 1: train the head (top classifier) with frozen base
-        initial_epochs = min(INITIAL_EPOCHS, epochs)
-        logger.info(f"Starting head training for {initial_epochs} epochs...")
+        # Train model
+        logger.info(f"Starting training...")
         history = cnn_model.fit(
             train_ds,
             validation_data=val_ds,
-            epochs=initial_epochs,
-            verbose=1,
-            callbacks=callbacks
+            epochs=epochs,
+            verbose=1
         )
-
-        # Stage 2: optionally unfreeze some of the base model and fine-tune
-        fine_tune_epochs = max(0, epochs - initial_epochs)
-        if fine_tune_epochs > 0:
-            logger.info("Unfreezing top layers of base model for fine-tuning...")
-            # Unfreeze the top N layers of the base model for fine-tuning
-            base_model.trainable = True
-            # Freeze all layers except last few (to avoid overfitting)
-            fine_tune_at = -50
-            if abs(fine_tune_at) <= len(base_model.layers):
-                for layer in base_model.layers[:fine_tune_at]:
-                    layer.trainable = False
-            # Re-compile with a lower learning rate
-            compile_model(cnn_model, learning_rate=1e-5)
-
-            logger.info(f"Starting fine-tuning for {fine_tune_epochs} epochs...")
-            history_fine = cnn_model.fit(
-                train_ds,
-                validation_data=val_ds,
-                epochs=initial_epochs + fine_tune_epochs,
-                initial_epoch=initial_epochs,
-                verbose=1,
-                callbacks=callbacks
-            )
-
-            # Merge histories
-            for k, v in history_fine.history.items():
-                if k in history.history:
-                    history.history[k].extend(v)
-                else:
-                    history.history[k] = v
         
         # Extract and log training metrics
         train_loss = history.history['loss'][-1]
