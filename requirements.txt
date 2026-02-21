@@ -1,16 +1,45 @@
-pandas
-numpy
+# Core Data Science & ML
+# Best efforts basis to maintain compatibility with latest versions while ensuring stability
+tensorflow>=2.20.0,<2.21
+numpy>=2.2.0,<2.3
+pandas>=2.3.0,<2.4
 scikit-learn
+opencv-python
+Pillow
 matplotlib
 seaborn
-mlflow
-ucimlrepo
+keras
+dvc
+
+# Deep Learning & Transfer Learning
+tensorflow-hub>=0.16.0,<0.17
+
+# API & Serving
 fastapi
 uvicorn
+python-multipart
+pydantic
+
+# Experiment Tracking
+mlflow
+mlflow[extras]
+
+# Dataset Versioning
+dvc
+dvc[gs]
+
+# Monitoring & Metrics
 prometheus-client
-flaml
-flaml[automl]
-ydata-profiling>=4.6.0
-ipykernel>=6.0.0
-httpx
-sweetviz>=2.3.1
+
+# Testing
+pytest
+pytest-cov
+
+# Data Augmentation
+albumentations
+
+# Utilities
+python-dotenv
+pytz
+kaggle>=1.5.16
+tqdm

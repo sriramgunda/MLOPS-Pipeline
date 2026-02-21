@@ -1,0 +1,29 @@
+stages:
+  data_download:
+    cmd: python src/data_loader.py
+    deps:
+      - src/data_loader.py
+      - src/kaggle.json
+    outs:
+      - data/cat-and-dog.zip
+
+  data_extraction:
+    cmd: python src/data_loader.py
+    deps:
+      - src/data_loader.py
+      - data/cat-and-dog.zip
+    outs:
+      - data/training_set
+      - data/test_set
+
+  data_organization:
+    cmd: python src/data_loader.py
+    deps:
+      - src/data_loader.py
+      - data/training_set
+      - data/test_set
+    outs:
+      - data/train
+      - data/validation
+      - data/test
+

@@ -1,0 +1,53 @@
+train_config:
+  epochs: 1
+  batch_size: 32
+  learning_rate: 0.001
+  validation_split: 0.1
+  test_split: 0.1
+  image_size:
+    height: 224
+    width: 224
+  seed: 42
+  
+data_config:
+  data_dir: data
+  train_dir: data/train
+  val_dir: data/validation
+  test_dir: data/test
+  dataset_source: "kaggle"
+  dataset_name: "tongpython/cat-and-dog"
+  split_ratio:
+    train: 0.8
+    validation: 0.1
+    test: 0.1
+  
+augmentation:
+  enable: true
+  random_flip: true
+  random_rotation: 0.1
+  random_zoom: 0.1
+  
+model_config:
+  architecture: "mobilenet_v2"
+  pretrained: true
+  pretrained_weights: "imagenet"
+  freeze_base: true
+  dropout_rate: 0.3
+  learning_rate: 0.001
+  
+artifacts:
+  model_path: models/best_model.keras
+  metrics_path: metrics.json
+  mlflow_uri: http://localhost:5000
+  experiment_name: "cat_dog_classification"
+  
+experiment_tracking:
+  mlflow_enabled: true
+  mlflow_backend: "local"
+  mlflow_artifact_store: "mlruns"
+  
+dvc:
+  enabled: true
+  cache_dir: ".dvc/cache"
+  remote_name: "myremote"
+  remote_url: "/tmp/dvc-storage"
