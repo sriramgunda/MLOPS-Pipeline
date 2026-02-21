@@ -90,6 +90,77 @@ python scripts/smoke_test.py --api-url http://localhost:8000 --timeout 30
 # Grafana: http://localhost:3000
 ```
 
+### Model Performance Monitoring (Metrics & Grafana)
+
+The FastAPI service in `app/main.py` exposes Prometheus metrics at the `/metrics` endpoint. These metrics are useful to track model performance, prediction behaviour, and inference latency and can be visualized in Grafana.
+
+- **Exposed metrics**:
+  - `api_requests_total{method,endpoint,status}` — request counts by method/endpoint/status
+  - `api_request_latency_seconds` (histogram: `_bucket`, `_sum`, `_count`) — request latency by endpoint
+  - `prediction_confidence{class_label}` (histogram) — distribution of prediction confidences per class
+  - `model_predictions_total{predicted_label}` — total predictions by predicted class
+  - `model_prediction_results_total{predicted_label,true_label}` — confusion matrix counts (feedback-driven)
+  - `model_correct_predictions_total{label}` — count of correct predictions per label
+
+- **Feedback endpoint**: send true labels to improve confusion matrix and accuracy counters.
+  - Endpoint: `POST /feedback`
+  - Body example:
+    ```json
+    {"predicted_label": "dog", "true_label": "cat"}
+    ```
+  - Example curl:
+    ```bash
+    curl -X POST http://localhost:8000/feedback -H "Content-Type: application/json" \
+      -d '{"predicted_label":"dog","true_label":"cat"}'
+    ```
+
+- **PromQL examples** (use these in Grafana panels):
+  - Prediction rate (per second):
+    ```promql
+    sum(rate(model_predictions_total[1m]))
+    ```
+  - Requests per endpoint:
+    ```promql
+    sum(rate(api_requests_total[1m])) by (endpoint)
+    ```
+  - 95th percentile latency (by endpoint):
+    ```promql
+    histogram_quantile(0.95, sum(rate(api_request_latency_seconds_bucket[5m])) by (le, endpoint))
+    ```
+  - Average latency (by endpoint):
+    ```promql
+    sum(rate(api_request_latency_seconds_sum[5m])) by (endpoint)
+      / sum(rate(api_request_latency_seconds_count[5m])) by (endpoint)
+    ```
+  - Overall accuracy (recent window):
+    ```promql
+    sum(rate(model_correct_predictions_total[5m]))
+      / sum(rate(model_predictions_total[5m]))
+    ```
+  - Confusion matrix snapshot (use a Table/Heatmap panel):
+    ```promql
+    increase(model_prediction_results_total[1h]) by (predicted_label, true_label)
+    ```
+  - Per-class recall (example for `cat`):
+    ```promql
+    increase(model_prediction_results_total{predicted_label="cat",true_label="cat"}[1h])
+      / increase(model_prediction_results_total{true_label="cat"}[1h])
+    ```
+
+- **Grafana dashboard setup**:
+  1. Start Grafana (`http://localhost:3000`) and add Prometheus (`http://localhost:9090`) as a data source.
+  2. Create panels:
+     - Time series / Stat: `sum(rate(model_predictions_total[1m]))` (prediction throughput)
+     - Time series: `histogram_quantile(0.95, sum(rate(api_request_latency_seconds_bucket[5m])) by (le, endpoint))` (latency P95)
+     - Gauge / Stat: overall accuracy query above
+     - Table or Heatmap: confusion matrix using `increase(model_prediction_results_total[1h]) by (predicted_label,true_label)`
+     - Histogram / Heatmap: confidence distribution using `prediction_confidence` buckets split by `class_label`
+  3. Use panel transform and legends to properly label `predicted_label` / `true_label` axes for the confusion matrix.
+
+- **Prometheus scraping**: `prometheus.yml` already includes a `cats-dogs-api-local` job targeting `localhost:8000`. When deploying to Kubernetes, ensure the pod/service has the `prometheus.io/scrape: "true"` and `prometheus.io/port: "8000"` annotations (the existing `k8s/servicemonitor.yaml` can be used for service discovery).
+
+These steps helps to monitor model performance trends, inspect prediction distributions, and surface regressions (drift/accuracy drops) directly in Grafana.
+
 ### Common Commands Reference
 | Task | Command |
 |------|---------|
