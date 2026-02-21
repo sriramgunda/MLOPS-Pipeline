@@ -495,12 +495,12 @@ def train_and_compare_models(
             best_model = mobilenet_model
             best_model_name = "mobilenet_v2"
             best_test_acc = mobilenet_test_acc
-            logger.info(f"\n✓ BEST MODEL SELECTED: MobileNetV2 (Test Acc: {mobilenet_test_acc:.4f})")
+            logger.info(f"\nBEST MODEL SELECTED: MobileNetV2 (Test Acc: {mobilenet_test_acc:.4f})")
         else:
             best_model = baseline_model
             best_model_name = "baseline_cnn"
             best_test_acc = baseline_test_acc
-            logger.info(f"\n✓ BEST MODEL SELECTED: Baseline CNN (Test Acc: {baseline_test_acc:.4f})")
+            logger.info(f"\nBEST MODEL SELECTED: Baseline CNN (Test Acc: {baseline_test_acc:.4f})")
         
         results['best_model'] = best_model
         results['best_model_name'] = best_model_name
@@ -704,7 +704,7 @@ def main():
         best_model_name = results['best_model_name']
         best_test_acc = results['best_test_accuracy']
         
-        logger.info(f"\n✓ Standalone training finished!")
+        logger.info(f"\nStandalone training finished!")
         logger.info(f"  Best Model: {best_model_name}")
         logger.info(f"  Test Accuracy: {best_test_acc:.4f}")
         logger.info(f"\nComparison Results:")

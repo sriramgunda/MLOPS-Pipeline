@@ -9,17 +9,17 @@ NOTE: This project uses DVC only for dataset versioning and tracking pre-process
 ## Architecture Diagram
 
 ```
-Dataset → Data Versioning (DVC) → Data Preprocessing (224x224 RGB)
-    ↓
-Model Training (CNN with MLflow) → Experiment Tracking
-    ↓
-Model Artifact Storage → Docker Containerization
-    ↓
-CI Pipeline (GitHub Actions) → Unit Tests → Docker Build → Registry Push
-    ↓
-CD Pipeline (GitOps) → Kubernetes Deployment
-    ↓
-Monitoring (Prometheus + Grafana) → Logging & Metrics → Model Performance Tracking
+Dataset -> Data Versioning (DVC) -> Data Preprocessing (224x224 RGB)
+    |
+Model Training (CNN with MLflow) -> Experiment Tracking
+    |
+Model Artifact Storage -> Docker Containerization
+    |
+CI Pipeline (GitHub Actions) -> Unit Tests -> Docker Build -> Registry Push
+    |
+CD Pipeline (GitOps) -> Kubernetes Deployment
+    |
+Monitoring (Prometheus + Grafana) -> Logging & Metrics -> Model Performance Tracking
 ```
 
 ## Quick Start
@@ -406,43 +406,84 @@ git lfs pull
 #### 2. Model Building
 - **Architecture**: MobileNetV2 transfer learning with frozen base + custom head
 - **Base Model**: ImageNet pre-trained weights
-- **Custom Head**: GlobalAveragePooling2D → Dropout(0.3) → Dense(1, sigmoid)
+- **Custom Head**: GlobalAveragePooling2D -> Dropout(0.3) -> Dense(1, sigmoid)
 - **Input Size**: 224×224 RGB images
 - **Model Format**: `.keras` (TensorFlow native format)
 - **Output**: Binary classification (Cats vs Dogs)
 
 #### 3. Experiment Tracking with MLflow
 
-All training runs are automatically logged to MLflow with:
-- **Run ID**: Unique identifier for each training run
-- **Parameters**: epochs, batch_size, learning_rate, model_name, seed
-- **Metrics**: train_loss, train_accuracy, val_loss, val_accuracy, test_loss, test_accuracy
-- **Artifacts**: Model weights (.keras), training history
+**Model Training & Comparison**:
 
+The pipeline trains both a baseline CNN model and a transfer learning model (MobileNetV2), tracks all experiments in MLflow, and automatically selects the best performing model.
+
+**Training Process**:
+1. **Baseline CNN Model** - Custom CNN trained from scratch
+   - Tracked as separate MLflow run
+   - Logs: train/val/test loss and accuracy
+   
+2. **MobileNetV2 Model** - Transfer learning with ImageNet pre-trained weights
+   - Tracked as separate MLflow run  
+   - Logs: train/val/test loss and accuracy, pretrained weights info
+   
+3. **Model Comparison** - Both models are evaluated on test set
+   - Baseline test accuracy vs MobileNetV2 test accuracy
+   - Accuracy difference and improvement percentage logged
+   - Best model selected based on highest test accuracy
+   
+4. **Best Model Selection** - Automatically saved as `models/best_model.keras`
+   - If MobileNetV2 test accuracy >= Baseline test accuracy then MobileNetV2 is selected
+   - Otherwise: Baseline CNN is selected
+   - Selected model is saved and used for inference
+
+**MLflow Tracking Details**:
+- **Run ID**: Unique identifier for each training run
+- **Parameters**: epochs, batch_size, learning_rate, model_name, seed, architecture type
+- **Metrics**: 
+  - train_loss, train_accuracy
+  - val_loss, val_accuracy  
+  - test_loss, test_accuracy
+  - accuracy_difference, improvement_percentage
+- **Artifacts**: 
+  - Model weights (.keras format)
+  - Training history
+  - Loss curves visualization
+  - Confusion matrix
+  - Classification report
+
+**Access MLflow UI**:
+```bash
+# Start MLflow server
+mlflow ui --port 5000
+# Visit http://localhost:5000
+```
+
+**Viewing Results in MLflow**:
+1. Navigate to http://localhost:5000
+2. Select the **"cat_dog_classification"** experiment
+3. View individual runs for:
+   - `baseline_cnn_YYYYMMDD_HHMMSS` - Baseline model metrics
+   - `mobilenet_v2_YYYYMMDD_HHMMSS` - Transfer learning model metrics
+   - `model_comparison_YYYYMMDD_HHMMSS` - Comparison summary
+4. Compare runs using the compare button to see side-by-side metrics
+5. Download artifacts (model, visualizations) from each run
+
+**Training Integration**:
 ```python
 # Training automatically integrates MLflow (see src/train_cnn.py)
 from src.train_cnn import train_cnn_pipeline
 
-model, history, test_loss, test_acc = train_cnn_pipeline(
+results = train_cnn_pipeline(
     train_ds, val_ds, test_ds,
     data_augmentation=augmentation,
     epochs=1  # Configurable via params.yaml
 )
 
-# View experiments in MLflow UI:
-# mlflow ui  # http://localhost:5000
-```
-
-**Track**:
-- Hyperparameters (learning rate, batch size, epochs)
-- Metrics (accuracy, loss, AUC)
-- Artifacts (model.h5, confusion_matrix.png, training_history.png)
-- Metadata (training time, dataset size)
-
-**Access MLflow UI**:
-```bash
-mlflow ui --port 5000
-# Visit http://localhost:5000
+# results contains:
+# - best_model: the selected model
+# - best_model_name: 'baseline_cnn' or 'mobilenet_v2'
+# - baseline/mobilenet metrics and histories
+# - comparison results with accuracy improvements
 ```
 
 ---
@@ -801,7 +842,7 @@ dvc add data/cats_and_dogs/
 
 # Option 2: Reproduce entire DVC pipeline (if remote is configured)
 dvc pull              # Download data from remote
-dvc repro             # Rebuilds all stages: data_download → data_preprocess → train_model
+dvc repro             # Rebuilds all stages: data_download -> data_preprocess -> train_model
 
 # Run tests
 pytest tests/ -v
@@ -887,30 +928,42 @@ kubectl logs -f deployment/cats-dogs-deployment
 # 1. Prepare data
 python src/data_loader.py
 
-# 2. Train with MLflow tracking
-python src/train_cnn.py \
-  --model-type baseline \
-  --epochs 50 \
-  --batch-size 32
+# 2. Train with MLflow tracking (automatically trains both baseline and MobileNetV2)
+python src/train_cnn.py
 
-# 3. Check MLflow UI
+# 3. View results in MLflow UI
 mlflow ui --port 5000
-# Select best run and register model
+# - Select the "cat_dog_classification" experiment
+# - Compare baseline vs MobileNetV2 runs
+# - View accuracy, loss curves, and other metrics
+# - Best model is automatically selected based on test accuracy
+# - Best model saved as: models/best_model.keras
 ```
 
 ### Deploying New Model
 
 ```bash
-# 1. Update model path in app/main.py
-# 2. Build and test locally
+# 1. Train new model (automatic best model selection)
+python src/train_cnn.py
+# This generates models/best_model.keras (automatically selected as best performer)
+
+# 2. The CI/CD pipeline will:
+#    - Automatically copy models/best_model.keras to app/best_model.keras
+#    - Build Docker image with the latest model
+#    - Push to container registry
+
+# 3. For manual deployment:
+# Copy model to app directory
+cp models/best_model.keras app/best_model.keras
+
+# Build and test locally
 docker build -t cats-dogs-classifier:v2.0 .
 docker run -p 8000:8000 cats-dogs-classifier:v2.0
 
-# 3. Push to registry
+# 4. Push to registry
 docker push ghcr.io/username/cats-dogs-classifier:v2.0
 
-# 4. Update k8s/deployment.yaml image tag
-# 5. Deploy
+# 5. Update k8s/deployment.yaml image tag and deploy
 kubectl apply -f k8s/deployment.yaml
 kubectl rollout status deployment/cats-dogs-deployment
 ```
@@ -959,7 +1012,7 @@ curl 'http://localhost:9090/api/v1/query?query=rate(api_requests_total[5m])'
 ### Model Not Loading
 ```bash
 # Check model file exists
-ls -la app/model.h5
+ls -la app/best_model.keras
 
 # Verify TensorFlow installation
 python -c "import tensorflow; print(tensorflow.__version__)"
