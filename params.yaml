@@ -36,7 +36,7 @@ model_config:
   learning_rate: 0.001
   
 artifacts:
-  model_path: models/mobilenet_v2.keras
+  model_path: models/best_model.keras
   metrics_path: metrics.json
   mlflow_uri: http://localhost:5000
   experiment_name: "cat_dog_classification"

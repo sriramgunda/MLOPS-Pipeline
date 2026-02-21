@@ -101,7 +101,7 @@ def main():
         logger.info("STEP 5: Model Inference & Predictions")
         logger.info("=" * 80)
         
-        best_model_path = "models/mobilenet_v2.keras"
+        best_model_path = "models/best_model.keras"
         logger.info(f"Selected model: {best_model_path} (Accuracy: {cnn_test_acc:.4f})")
         
         # Load predictor

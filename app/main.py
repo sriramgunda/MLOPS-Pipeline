@@ -19,7 +19,7 @@ import tensorflow as tf
 from PIL import Image
 
 # Prometheus metrics
-from prometheus_client import Counter, Histogram, generate_latest
+from prometheus_client import Counter, Histogram, Gauge, generate_latest
 
 # Setup logging
 logging.basicConfig(
@@ -50,9 +50,31 @@ PREDICTION_CONFIDENCE = Histogram(
 )
 
 # ========================
+# Model Performance Metrics
+# ========================
+
+MODEL_PREDICTIONS_TOTAL = Counter(
+    "model_predictions_total",
+    "Total model predictions",
+    ["predicted_label"]
+)
+
+MODEL_PREDICTION_RESULTS = Counter(
+    "model_prediction_results_total",
+    "Model prediction results (confusion matrix)",
+    ["predicted_label", "true_label"]
+)
+
+MODEL_CORRECT_PREDICTIONS = Counter(
+    "model_correct_predictions_total",
+    "Total correct predictions",
+    ["label"]
+)
+
+# ========================
 # Load Model
 # ========================
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "mobilenet_v2.keras")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "best_model.keras")
 logger.info(f"Loading model from {MODEL_PATH}")
 
 try:
@@ -246,6 +268,11 @@ async def predict(file: UploadFile = File(...)):
         
         # Track confidence metric
         PREDICTION_CONFIDENCE.labels(class_label=predicted_class).observe(confidence)
+
+        # Track total predictions
+        MODEL_PREDICTIONS_TOTAL.labels(
+            predicted_label=predicted_class
+        ).inc()
         
         return {
             "prediction": predicted_class,
@@ -301,6 +328,36 @@ async def predict_base64(data: dict):
             detail=f"Invalid base64 image: {str(e)}"
         )
 
+@app.post("/feedback")
+async def submit_feedback(data: dict):
+    """
+    Submit true label for a prediction.
+
+    Request body:
+    {
+        "predicted_label": "dog",
+        "true_label": "cat"
+    }
+    """
+    predicted_label = data.get("predicted_label")
+    true_label = data.get("true_label")
+
+    if not predicted_label or not true_label:
+        raise HTTPException(status_code=400, detail="Missing labels")
+
+    # Update confusion matrix metric
+    MODEL_PREDICTION_RESULTS.labels(
+        predicted_label=predicted_label,
+        true_label=true_label
+    ).inc()
+
+    # Track correct predictions
+    if predicted_label == true_label:
+        MODEL_CORRECT_PREDICTIONS.labels(
+            label=predicted_label
+        ).inc()
+
+    return {"message": "Feedback recorded"}
 
 @app.get("/metrics")
 async def metrics():

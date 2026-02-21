@@ -16,7 +16,7 @@ def run_cmd(cmd, desc=""):
     
     result = subprocess.run(cmd, shell=True)
     if result.returncode != 0:
-        print(f"✗ Error: {cmd}")
+        print(f"[ERROR] {cmd}")
         sys.exit(1)
     print(f"[OK] Done\n")
 
