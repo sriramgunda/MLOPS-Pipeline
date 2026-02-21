@@ -51,6 +51,51 @@ EPOCHS = 3
 SEED = 42
 
 
+def build_baseline_model(
+    data_augmentation=None,
+    img_size=IMG_SIZE,
+    dropout_rate=0.3
+):
+    """
+    Build a baseline CNN model from scratch
+    
+    Args:
+        data_augmentation: Data augmentation layer (optional)
+        img_size: Input image size (height, width)
+        dropout_rate: Dropout rate for regularization
+        
+    Returns:
+        tf.keras.Model: Baseline CNN model
+    """
+    layers_list = []
+    
+    if data_augmentation is not None:
+        layers_list.append(data_augmentation)
+    
+    layers_list.extend([
+        layers.Rescaling(1./255, input_shape=(*img_size, 3)),
+        
+        layers.Conv2D(32, (3, 3), activation='relu'),
+        layers.MaxPooling2D(),
+        
+        layers.Conv2D(64, (3, 3), activation='relu'),
+        layers.MaxPooling2D(),
+        
+        layers.Conv2D(128, (3, 3), activation='relu'),
+        layers.MaxPooling2D(),
+        
+        layers.Flatten(),
+        layers.Dense(128, activation='relu'),
+        layers.Dropout(dropout_rate),
+        layers.Dense(1, activation='sigmoid')
+    ])
+    
+    model = models.Sequential(layers_list)
+    
+    logger.info("Baseline CNN model created.")
+    return model
+
+
 def build_cnn_model(
     data_augmentation=None,
     img_size=IMG_SIZE,
@@ -244,6 +289,244 @@ def load_trained_model(model_path):
         raise
 
 
+def train_and_compare_models(
+    train_ds,
+    val_ds,
+    test_ds,
+    data_augmentation=None,
+    epochs=EPOCHS,
+    mlflow_enabled=True
+):
+    """
+    Train both baseline and MobileNetV2 models, compare performance, and select best
+    
+    Args:
+        train_ds: Training dataset
+        val_ds: Validation dataset
+        test_ds: Test dataset
+        data_augmentation: Data augmentation layer
+        epochs: Number of epochs
+        mlflow_enabled: Whether to use MLflow tracking
+        
+    Returns:
+        dict: Results containing {
+            'best_model': trained best model,
+            'best_model_name': name of best model,
+            'baseline_results': baseline model metrics,
+            'mobilenet_results': mobilenet model metrics,
+            'histories': training histories,
+            'comparison': performance comparison
+        }
+    """
+    results = {
+        'baseline_results': {},
+        'mobilenet_results': {},
+        'histories': {},
+        'comparison': {}
+    }
+    
+    models_dict = {}
+    
+    try:
+        # ==================== TRAIN BASELINE MODEL ====================
+        logger.info("\n" + "="*60)
+        logger.info("TRAINING BASELINE MODEL")
+        logger.info("="*60)
+        
+        baseline_model = build_baseline_model(data_augmentation=data_augmentation)
+        baseline_model.summary()
+        compile_model(baseline_model, learning_rate=0.001)
+        
+        if mlflow_enabled:
+            try:
+                mlflow.start_run(run_name=f"baseline_cnn_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                baseline_params = {
+                    'epochs': epochs,
+                    'model_name': 'baseline_cnn',
+                    'img_size': str(IMG_SIZE),
+                    'seed': SEED,
+                    'learning_rate': 0.001,
+                    'optimizer': 'Adam',
+                    'loss_function': 'binary_crossentropy'
+                }
+                mlflow.log_params(baseline_params)
+                logger.info("MLflow run started for baseline model")
+            except Exception as e:
+                logger.warning(f"Could not start MLflow run for baseline: {e}")
+        
+        baseline_history = baseline_model.fit(
+            train_ds,
+            validation_data=val_ds,
+            epochs=epochs,
+            verbose=1
+        )
+        
+        baseline_train_loss = baseline_history.history['loss'][-1]
+        baseline_train_acc = baseline_history.history['accuracy'][-1]
+        baseline_val_loss = baseline_history.history['val_loss'][-1]
+        baseline_val_acc = baseline_history.history['val_accuracy'][-1]
+        
+        baseline_test_loss, baseline_test_acc = baseline_model.evaluate(test_ds, verbose=0)
+        
+        results['baseline_results'] = {
+            'train_loss': baseline_train_loss,
+            'train_accuracy': baseline_train_acc,
+            'val_loss': baseline_val_loss,
+            'val_accuracy': baseline_val_acc,
+            'test_loss': baseline_test_loss,
+            'test_accuracy': baseline_test_acc
+        }
+        results['histories']['baseline'] = baseline_history
+        
+        logger.info(f"Baseline - Train Acc: {baseline_train_acc:.4f}, Val Acc: {baseline_val_acc:.4f}, Test Acc: {baseline_test_acc:.4f}")
+        
+        if mlflow_enabled:
+            try:
+                mlflow.log_metrics({
+                    'train_loss': baseline_train_loss,
+                    'train_accuracy': baseline_train_acc,
+                    'val_loss': baseline_val_loss,
+                    'val_accuracy': baseline_val_acc,
+                    'test_loss': baseline_test_loss,
+                    'test_accuracy': baseline_test_acc
+                })
+                mlflow.keras.log_model(baseline_model, "model", registered_model_name="baseline_cnn")
+            except Exception as e:
+                logger.warning(f"Could not log baseline metrics to MLflow: {e}")
+        
+        models_dict['baseline'] = baseline_model
+        
+        if mlflow_enabled:
+            mlflow.end_run()
+        
+        # ==================== TRAIN MOBILENET V2 MODEL ====================
+        logger.info("\n" + "="*60)
+        logger.info("TRAINING MOBILENET V2 MODEL")
+        logger.info("="*60)
+        
+        mobilenet_model = build_cnn_model(data_augmentation=data_augmentation)
+        mobilenet_model.summary()
+        compile_model(mobilenet_model, learning_rate=0.001)
+        
+        if mlflow_enabled:
+            try:
+                mlflow.start_run(run_name=f"mobilenet_v2_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                mobilenet_params = {
+                    'epochs': epochs,
+                    'model_name': 'mobilenet_v2',
+                    'img_size': str(IMG_SIZE),
+                    'seed': SEED,
+                    'learning_rate': 0.001,
+                    'optimizer': 'Adam',
+                    'loss_function': 'binary_crossentropy',
+                    'transfer_learning': True,
+                    'pretrained_weights': 'imagenet'
+                }
+                mlflow.log_params(mobilenet_params)
+                logger.info("MLflow run started for MobileNetV2 model")
+            except Exception as e:
+                logger.warning(f"Could not start MLflow run for MobileNetV2: {e}")
+        
+        mobilenet_history = mobilenet_model.fit(
+            train_ds,
+            validation_data=val_ds,
+            epochs=epochs,
+            verbose=1
+        )
+        
+        mobilenet_train_loss = mobilenet_history.history['loss'][-1]
+        mobilenet_train_acc = mobilenet_history.history['accuracy'][-1]
+        mobilenet_val_loss = mobilenet_history.history['val_loss'][-1]
+        mobilenet_val_acc = mobilenet_history.history['val_accuracy'][-1]
+        
+        mobilenet_test_loss, mobilenet_test_acc = mobilenet_model.evaluate(test_ds, verbose=0)
+        
+        results['mobilenet_results'] = {
+            'train_loss': mobilenet_train_loss,
+            'train_accuracy': mobilenet_train_acc,
+            'val_loss': mobilenet_val_loss,
+            'val_accuracy': mobilenet_val_acc,
+            'test_loss': mobilenet_test_loss,
+            'test_accuracy': mobilenet_test_acc
+        }
+        results['histories']['mobilenet'] = mobilenet_history
+        
+        logger.info(f"MobileNetV2 - Train Acc: {mobilenet_train_acc:.4f}, Val Acc: {mobilenet_val_acc:.4f}, Test Acc: {mobilenet_test_acc:.4f}")
+        
+        if mlflow_enabled:
+            try:
+                mlflow.log_metrics({
+                    'train_loss': mobilenet_train_loss,
+                    'train_accuracy': mobilenet_train_acc,
+                    'val_loss': mobilenet_val_loss,
+                    'val_accuracy': mobilenet_val_acc,
+                    'test_loss': mobilenet_test_loss,
+                    'test_accuracy': mobilenet_test_acc
+                })
+                mlflow.keras.log_model(mobilenet_model, "model", registered_model_name="mobilenet_v2")
+            except Exception as e:
+                logger.warning(f"Could not log MobileNetV2 metrics to MLflow: {e}")
+        
+        models_dict['mobilenet'] = mobilenet_model
+        
+        if mlflow_enabled:
+            mlflow.end_run()
+        
+        # ==================== COMPARE MODELS ====================
+        logger.info("\n" + "="*60)
+        logger.info("MODEL COMPARISON")
+        logger.info("="*60)
+        
+        comparison = {
+            'baseline_test_acc': baseline_test_acc,
+            'mobilenet_test_acc': mobilenet_test_acc,
+            'accuracy_diff': abs(mobilenet_test_acc - baseline_test_acc),
+            'improvement': ((mobilenet_test_acc - baseline_test_acc) / baseline_test_acc * 100) if baseline_test_acc > 0 else 0
+        }
+        results['comparison'] = comparison
+        
+        logger.info(f"\nBaseline Test Accuracy:    {baseline_test_acc:.4f}")
+        logger.info(f"MobileNetV2 Test Accuracy: {mobilenet_test_acc:.4f}")
+        logger.info(f"Difference:                {comparison['accuracy_diff']:.4f}")
+        logger.info(f"Improvement:               {comparison['improvement']:.2f}%")
+        
+        # Select best model based on test accuracy
+        if mobilenet_test_acc >= baseline_test_acc:
+            best_model = mobilenet_model
+            best_model_name = "mobilenet_v2"
+            best_test_acc = mobilenet_test_acc
+            logger.info(f"\n✓ BEST MODEL SELECTED: MobileNetV2 (Test Acc: {mobilenet_test_acc:.4f})")
+        else:
+            best_model = baseline_model
+            best_model_name = "baseline_cnn"
+            best_test_acc = baseline_test_acc
+            logger.info(f"\n✓ BEST MODEL SELECTED: Baseline CNN (Test Acc: {baseline_test_acc:.4f})")
+        
+        results['best_model'] = best_model
+        results['best_model_name'] = best_model_name
+        results['best_test_accuracy'] = best_test_acc
+        
+        # Log comparison to MLflow in the context of best model
+        if mlflow_enabled:
+            try:
+                mlflow.start_run(run_name=f"model_comparison_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                mlflow.log_metric("baseline_test_accuracy", baseline_test_acc)
+                mlflow.log_metric("mobilenet_test_accuracy", mobilenet_test_acc)
+                mlflow.log_metric("accuracy_difference", comparison['accuracy_diff'])
+                mlflow.log_metric("improvement_percentage", comparison['improvement'])
+                mlflow.log_param("best_model", best_model_name)
+                mlflow.end_run()
+                logger.info("Model comparison logged to MLflow")
+            except Exception as e:
+                logger.warning(f"Could not log comparison to MLflow: {e}")
+        
+        return results
+        
+    except Exception as e:
+        logger.error(f"Error during model training and comparison: {e}", exc_info=True)
+        raise
+
+
 def train_cnn_pipeline(
     train_ds,
     val_ds,
@@ -252,7 +535,8 @@ def train_cnn_pipeline(
     epochs=EPOCHS
 ):
     """
-    Complete pipeline for training CNN model (MobileNetV2)
+    Complete pipeline for training and comparing CNN models (Baseline + MobileNetV2)
+    Selects best model and saves it with MLflow integration
     
     Args:
         train_ds: Training dataset
@@ -262,7 +546,7 @@ def train_cnn_pipeline(
         epochs: Number of epochs
         
     Returns:
-        tuple: (model, history, test_loss, test_acc)
+        tuple: (best_model, all_results)
     """
     # Load configuration
     config = load_experiment_config()
@@ -280,106 +564,41 @@ def train_cnn_pipeline(
         logger.warning("Continuing without MLflow tracking...")
         mlflow_enabled = False
     
-    # Build and compile CNN model
-    cnn_model = build_cnn_model(
-        data_augmentation=data_augmentation
+    # Train and compare models
+    results = train_and_compare_models(
+        train_ds, val_ds, test_ds,
+        data_augmentation=data_augmentation,
+        epochs=epochs,
+        mlflow_enabled=mlflow_enabled
     )
-    cnn_model.summary()
     
-    compile_model(cnn_model, learning_rate=0.001)
+    best_model = results['best_model']
+    best_model_name = results['best_model_name']
+    best_test_acc = results['best_test_accuracy']
     
-    # Training with optional MLflow tracking
-    run_context = None
+    # Generate predictions for evaluation artifacts using the best model
     if mlflow_enabled:
+        logger.info("\nGenerating evaluation artifacts for best model...")
         try:
-            run_name = f"mobilenet_v2_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            params = {
-                'epochs': epochs,
-                'model_name': 'mobilenet_v2',
-                'img_size': str(IMG_SIZE),
-                'seed': SEED,
-                'learning_rate': 0.001,
-                'optimizer': 'Adam',
-                'loss_function': 'binary_crossentropy'
-            }
-            run_context = start_mlflow_run(run_name=run_name, params=params)
-        except Exception as e:
-            logger.warning(f"Could not start MLflow run: {e}")
-            logger.warning("Continuing training without MLflow...")
-            mlflow_enabled = False
-            run_context = None
-    
-    try:
-        
-        # Log training parameters
-        if mlflow_enabled:
-            try:
-                mlflow.log_param("epochs", epochs)
-                mlflow.log_param("model_name", "mobilenet_v2")
-                mlflow.log_param("img_size", IMG_SIZE)
-                mlflow.log_param("seed", SEED)
-                mlflow.log_param("learning_rate", 0.001)
-                mlflow.log_param("optimizer", "Adam")
-                mlflow.log_param("loss_function", "binary_crossentropy")
-            except Exception as e:
-                logger.warning(f"Could not log parameters to MLflow: {e}")
-        
-        # Train model
-        logger.info(f"Starting training...")
-        history = cnn_model.fit(
-            train_ds,
-            validation_data=val_ds,
-            epochs=epochs,
-            verbose=1
-        )
-        
-        # Extract and log training metrics
-        train_loss = history.history['loss'][-1]
-        train_acc = history.history['accuracy'][-1]
-        val_loss = history.history['val_loss'][-1]
-        val_acc = history.history['val_accuracy'][-1]
-        
-        if mlflow_enabled:
-            try:
-                mlflow.log_metric("train_loss", train_loss)
-                mlflow.log_metric("train_accuracy", train_acc)
-                mlflow.log_metric("val_loss", val_loss)
-                mlflow.log_metric("val_accuracy", val_acc)
-            except Exception as e:
-                logger.warning(f"Could not log training metrics to MLflow: {e}")
-        
-        logger.info(f"Training completed. Val Accuracy: {val_acc:.4f}")
-        
-        # Evaluate on test set and log metrics
-        logger.info(f"Evaluating on test dataset...")
-        test_loss, test_acc = cnn_model.evaluate(test_ds, verbose=0)
-        
-        if mlflow_enabled:
-            try:
-                mlflow.log_metric("test_loss", test_loss)
-                mlflow.log_metric("test_accuracy", test_acc)
-            except Exception as e:
-                logger.warning(f"Could not log test metrics to MLflow: {e}")
-        
-        logger.info(f"Test Accuracy: {test_acc:.4f}")
-        
-        # Generate predictions for confusion matrix
-        if mlflow_enabled:
-            logger.info("Generating predictions for evaluation artifacts...")
-            try:
-                y_true, y_pred = get_predictions_and_labels(cnn_model, test_ds)
+            y_true, y_pred = get_predictions_and_labels(best_model, test_ds)
+            
+            if y_true is not None and y_pred is not None:
+                # Create artifacts directory
+                os.makedirs("artifacts", exist_ok=True)
                 
-                if y_true is not None and y_pred is not None:
-                    # Create artifacts directory
-                    os.makedirs("artifacts", exist_ok=True)
+                # Log to MLflow in new run for best model
+                try:
+                    mlflow.start_run(run_name=f"best_model_{best_model_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
                     
                     # Log loss curves
                     try:
                         logger.info("Generating training curves...")
-                        curves_path = save_loss_curves(history, "artifacts")
-                        if curves_path and os.path.exists(curves_path):
-                            mlflow.log_artifact(curves_path, "metrics")
-                            logger.info("Loss curves logged to MLflow")
+                        history = results['histories'].get(best_model_name.replace('_', ''))
+                        if history:
+                            curves_path = save_loss_curves(history, "artifacts")
+                            if curves_path and os.path.exists(curves_path):
+                                mlflow.log_artifact(curves_path, "metrics")
+                                logger.info("Loss curves logged to MLflow")
                     except Exception as e:
                         logger.warning(f"Could not log loss curves: {e}")
                     
@@ -402,52 +621,60 @@ def train_cnn_pipeline(
                             logger.info("Classification report logged to MLflow")
                     except Exception as e:
                         logger.warning(f"Could not log classification report: {e}")
-                else:
-                    logger.warning("Could not generate evaluation artifacts")
                     
-            except Exception as e:
-                logger.warning(f"Could not generate evaluation artifacts: {e}")
-        
-        # Log the model as Keras artifact
-        if mlflow_enabled:
-            try:
-                mlflow.keras.log_model(cnn_model, "model", registered_model_name="mobilenet_v2")
-                logger.info(f"Model logged to MLflow: mobilenet_v2")
-            except Exception as e:
-                logger.warning(f"Could not log model to MLflow: {e}")
-        
-        # Save model to disk
-        os.makedirs("models", exist_ok=True)
-        save_model(cnn_model, "models/mobilenet_v2.keras", "mobilenet_v2")
-        
-        # Log training artifacts
-        if mlflow_enabled:
-            try:
-                mlflow.log_artifact("models/mobilenet_v2.keras", "model")
-            except Exception as e:
-                logger.warning(f"Could not log model artifact: {e}")
-        
-        if mlflow_enabled:
-            logger.info("Training run completed successfully!")
-        else:
-            logger.info("Training completed (without MLflow tracking)")
-            logger.info("To enable MLflow tracking, ensure MLflow UI is running:")
-            logger.info("  mlflow ui --host localhost --port 5000")
-        
-    finally:
-        if mlflow_enabled and run_context:
-            try:
-                end_mlflow_run()
-            except Exception as e:
-                logger.warning(f"Error closing MLflow run: {e}")
+                    # Log best model
+                    try:
+                        mlflow.keras.log_model(best_model, "model", registered_model_name=best_model_name)
+                        logger.info(f"Best model logged to MLflow: {best_model_name}")
+                    except Exception as e:
+                        logger.warning(f"Could not log best model to MLflow: {e}")
+                    
+                    mlflow.end_run()
+                    
+                except Exception as e:
+                    logger.warning(f"Error in MLflow artifact logging: {e}")
+                    
+            else:
+                logger.warning("Could not generate evaluation artifacts")
+                
+        except Exception as e:
+            logger.warning(f"Could not generate evaluation artifacts: {e}")
     
-    return cnn_model, history, test_loss, test_acc
+    # Save best model to disk
+    os.makedirs("models", exist_ok=True)
+    if best_model_name == "baseline_cnn":
+        model_path = "models/baseline_cnn.keras"
+    else:
+        model_path = "models/best_model.keras"
+    
+    save_model(best_model, model_path, best_model_name)
+    
+    # Log best model artifact
+    if mlflow_enabled:
+        try:
+            mlflow.log_artifact(model_path, "best_model")
+        except Exception as e:
+            logger.warning(f"Could not log best model artifact: {e}")
+    
+    logger.info("\n" + "="*60)
+    logger.info("TRAINING PIPELINE COMPLETED")
+    logger.info("="*60)
+    logger.info(f"Best Model: {best_model_name}")
+    logger.info(f"Test Accuracy: {best_test_acc:.4f}")
+    logger.info(f"Model saved to: {model_path}")
+    logger.info("="*60 + "\n")
+    
+    if mlflow_enabled:
+        logger.info("To view MLflow experiments, run:")
+        logger.info("  mlflow ui --host localhost --port 5000")
+    
+    return best_model, results
 
 
 def main():
     """Prepare data and run the CNN training pipeline as a standalone script."""
     logging.basicConfig(level=logging.INFO)
-    logger.info("Starting standalone CNN training...")
+    logger.info("Starting standalone CNN training with model comparison...")
 
     try:
         # Prepare dataset (downloads/extracts/organizes if needed)
@@ -469,12 +696,19 @@ def main():
             train_dir, val_dir, test_dir, augment_train=True
         )
 
-        # Run training pipeline
-        model, history, test_loss, test_acc = train_cnn_pipeline(
+        # Run training pipeline with model comparison
+        best_model, results = train_cnn_pipeline(
             train_ds, val_ds, test_ds, data_augmentation=augmentation, epochs=EPOCHS
         )
 
-        logger.info(f"Standalone training finished. Test accuracy: {test_acc:.4f}")
+        best_model_name = results['best_model_name']
+        best_test_acc = results['best_test_accuracy']
+        
+        logger.info(f"\n✓ Standalone training finished!")
+        logger.info(f"  Best Model: {best_model_name}")
+        logger.info(f"  Test Accuracy: {best_test_acc:.4f}")
+        logger.info(f"\nComparison Results:")
+        logger.info(f"  {results['comparison']}")
 
     except Exception as e:
         logger.error(f"Error running standalone training: {e}", exc_info=True)

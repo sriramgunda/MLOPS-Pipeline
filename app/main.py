@@ -52,7 +52,7 @@ PREDICTION_CONFIDENCE = Histogram(
 # ========================
 # Load Model
 # ========================
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "mobilenet_v2.keras")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "best_model.keras")
 logger.info(f"Loading model from {MODEL_PATH}")
 
 try:

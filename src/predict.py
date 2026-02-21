@@ -223,5 +223,5 @@ if __name__ == "__main__":
         print("This module provides inference capabilities for the trained model.")
         print("\nUsage example:")
         print("  from predict import Predictor")
-        print("  predictor = Predictor('models/mobilenet_v2.keras')")
+        print("  predictor = Predictor('models/best_model.keras')")
         print("  class_name, probability = predictor.predict('path/to/image.jpg')")

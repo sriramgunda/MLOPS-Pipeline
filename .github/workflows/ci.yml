@@ -67,13 +67,13 @@ jobs:
 
     - name: Prepare Model for Docker
       run: |
-        # The training step produces 'models/mobilenet_v2.keras'
-        # We copy it to 'app/model.pkl' so the Dockerfile can pick it up
-        if [ -f "models/mobilenet_v2.keras" ]; then
-          cp models/mobilenet_v2.keras app/mobilenet_v2.keras
+        # The training step produces 'models/best_model.keras'
+        # We copy it to 'app/best_model.keras' so the Dockerfile can pick it up
+        if [ -f "models/best_model.keras" ]; then
+          cp models/best_model.keras app/best_model.keras
           echo "Model prepared successfully from artifacts."
         else
-          echo "Error: mobilenet_v2.keras not found in models/"
+          echo "Error: best_model.keras not found in models/"
           exit 1
         fi
 
