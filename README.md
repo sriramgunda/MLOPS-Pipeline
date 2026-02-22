@@ -6,6 +6,20 @@ MLOps pipeline for binary image classification (Cats vs Dogs). Includes model tr
 
 NOTE: This project uses DVC only for dataset versioning and tracking pre-processed data (download, extraction, organization). Model training and hyperparameter experimentation are run outside DVC (see "Train model" step). Do not track model parameters in DVC.
 
+## Project Demo
+
+Watch the full MLOps pipeline demonstration:
+
+[![MLOps Pipeline Demo](https://img.youtube.com/vi/O0FTtf04jKY/0.jpg)](https://www.youtube.com/watch?v=O0FTtf04jKY)
+
+Click Here
+[Full Project Demo on YouTube](https://www.youtube.com/watch?v=O0FTtf04jKY)
+
+Or
+ 
+Copy & Navigate
+https://www.youtube.com/watch?v=O0FTtf04jKY
+
 ## Architecture Diagram
 
 ```
@@ -24,140 +38,25 @@ Monitoring (Prometheus + Grafana) -> Logging & Metrics -> Model Performance Trac
 
 ## Quick Start
 
-### 1. Setup Environment
+For detailed setup instructions, see [MLOPS_setup.md](documentation/MLOPS_setup.md).
+
+Basic startup commands:
 ```bash
-# Clone repository
-git clone <repo-url>
-cd MLOPS-Pipeline
+# Setup
+python setup_mlops.py
 
-# Linux/Mac
-bash setup.sh
-
-# Windows
-python setup_mlops.py  # Run the cross-platform setup script on Windows (or run setup.sh under WSL)
-```
-
-### 2. Download Dataset & Train Model
-```bash
-# Download Microsoft Cats vs Dogs dataset
+# Download dataset
 python src/data_loader.py
 
-# Train CNN model with MLflow tracking
-# Train models outside DVC (models and parameters are not tracked by DVC)
+# Train model
 python src/train_cnn.py
 
-# View experiments
-mlflow ui --port 5000  # Open http://localhost:5000
-```
-
-### 3. Start API Service
-```bash
-# Local development (reload on code changes)
+# Start API
 uvicorn app.main:app --reload --port 8000
 
-# For production
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-# Access API
-curl -X GET http://localhost:8000/health
-```
-
-### 4. Deploy to Kubernetes
-```bash
-# Deploy to K8s cluster (Minikube/GKE/AKS/EKS)
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/servicemonitor.yaml
-
-# Check deployment status
-kubectl get deployment -w
-kubectl get svc -w
-
-# Access API via service
-kubectl port-forward svc/cats-dogs-service 8000:80
-```
-
-### 5. Run Tests & Monitoring
-```bash
-# Run unit tests
+# Run tests
 pytest tests/ -v
-
-# Post-deployment smoke tests
-python scripts/smoke_test.py --api-url http://localhost:8000 --timeout 30
-
-# Monitor with Prometheus + Grafana
-# Prometheus: http://localhost:9090
-# Grafana: http://localhost:3000
 ```
-
-### Model Performance Monitoring (Metrics & Grafana)
-
-The FastAPI service in `app/main.py` exposes Prometheus metrics at the `/metrics` endpoint. These metrics are useful to track model performance, prediction behaviour, and inference latency and can be visualized in Grafana.
-
-- **Exposed metrics**:
-  - `api_requests_total{method,endpoint,status}` — request counts by method/endpoint/status
-  - `api_request_latency_seconds` (histogram: `_bucket`, `_sum`, `_count`) — request latency by endpoint
-  - `prediction_confidence{class_label}` (histogram) — distribution of prediction confidences per class
-  - `model_predictions_total{predicted_label}` — total predictions by predicted class
-  - `model_prediction_results_total{predicted_label,true_label}` — confusion matrix counts (feedback-driven)
-  - `model_correct_predictions_total{label}` — count of correct predictions per label
-
-- **Feedback endpoint**: send true labels to improve confusion matrix and accuracy counters.
-  - Endpoint: `POST /feedback`
-  - Body example:
-    ```json
-    {"predicted_label": "dog", "true_label": "cat"}
-    ```
-  - Example curl:
-    ```bash
-    curl -X POST http://localhost:8000/feedback -H "Content-Type: application/json" \
-      -d '{"predicted_label":"dog","true_label":"cat"}'
-    ```
-
-- **PromQL examples** (use these in Grafana panels):
-  - Prediction rate (per second):
-    ```promql
-    sum(rate(model_predictions_total[1m]))
-    ```
-  - Requests per endpoint:
-    ```promql
-    sum(rate(api_requests_total[1m])) by (endpoint)
-    ```
-  - 95th percentile latency (by endpoint):
-    ```promql
-    histogram_quantile(0.95, sum(rate(api_request_latency_seconds_bucket[5m])) by (le, endpoint))
-    ```
-  - Average latency (by endpoint):
-    ```promql
-    sum(rate(api_request_latency_seconds_sum[5m])) by (endpoint)
-      / sum(rate(api_request_latency_seconds_count[5m])) by (endpoint)
-    ```
-  - Overall accuracy (recent window):
-    ```promql
-    sum(rate(model_correct_predictions_total[5m]))
-      / sum(rate(model_predictions_total[5m]))
-    ```
-  - Confusion matrix snapshot (use a Table/Heatmap panel):
-    ```promql
-    increase(model_prediction_results_total[1h]) by (predicted_label, true_label)
-    ```
-  - Per-class recall (example for `cat`):
-    ```promql
-    increase(model_prediction_results_total{predicted_label="cat",true_label="cat"}[1h])
-      / increase(model_prediction_results_total{true_label="cat"}[1h])
-    ```
-
-- **Grafana dashboard setup**:
-  1. Start Grafana (`http://localhost:3000`) and add Prometheus (`http://localhost:9090`) as a data source.
-  2. Create panels:
-     - Time series / Stat: `sum(rate(model_predictions_total[1m]))` (prediction throughput)
-     - Time series: `histogram_quantile(0.95, sum(rate(api_request_latency_seconds_bucket[5m])) by (le, endpoint))` (latency P95)
-     - Gauge / Stat: overall accuracy query above
-     - Table or Heatmap: confusion matrix using `increase(model_prediction_results_total[1h]) by (predicted_label,true_label)`
-     - Histogram / Heatmap: confidence distribution using `prediction_confidence` buckets split by `class_label`
-  3. Use panel transform and legends to properly label `predicted_label` / `true_label` axes for the confusion matrix.
-
-- **Prometheus scraping**: `prometheus.yml` already includes a `cats-dogs-api-local` job targeting `localhost:8000`. When deploying to Kubernetes, ensure the pod/service has the `prometheus.io/scrape: "true"` and `prometheus.io/port: "8000"` annotations (the existing `k8s/servicemonitor.yaml` can be used for service discovery).
 
 These steps helps to monitor model performance trends, inspect prediction distributions, and surface regressions (drift/accuracy drops) directly in Grafana.
 
@@ -250,7 +149,7 @@ After modifying parameters, DVC will re-run only affected stages:
 dvc repro  # Automatically re-runs necessary stages
 ```
 
-For complete MLOps documentation, see [MLOps_SETUP.md](MLOps_SETUP.md).
+For complete MLOps documentation, see [MLOPS_setup.md](documentation/MLOPS_setup.md).
 
 ## Project Structure
 
@@ -293,6 +192,47 @@ For complete MLOps documentation, see [MLOps_SETUP.md](MLOps_SETUP.md).
 ├── setup.sh                    # Environment setup script
 └── README.md                   # This file
 ```
+
+## Screenshots
+
+MLOps pipeline implementation showcased across multiple modules:
+
+### Experiment Tracking (MLflow)
+- ![MLflow UI](documentation/screenshots/experiment-tracking/mlflow-ui.png) - Experiment overview and run tracking
+- ![Model Metrics](documentation/screenshots/experiment-tracking/model-metrics.png) - Metrics comparison
+- ![Model Overview](documentation/screenshots/experiment-tracking/model-overview.png) - Model details
+- ![Model Versioning](documentation/screenshots/experiment-tracking/model-versioninig.png) - Version management
+- ![Models Tracked](documentation/screenshots/experiment-tracking/models-tracked.png) - All tracked models
+- ![Model Metadata 1](documentation/screenshots/experiment-tracking/model-metadata-1.png) - Metadata details (part 1)
+- ![Model Metadata 2](documentation/screenshots/experiment-tracking/model-metadata-2.png) - Metadata details (part 2)
+
+### CI Pipeline (GitHub Actions)
+- ![Install Dependencies](documentation/screenshots/CI/install-dependencies.png) - Dependency installation
+- ![Unit Tests](documentation/screenshots/CI/unit-tests.png) - Test execution (tests/)
+- ![Docker Build & Push](documentation/screenshots/CI/docker-image-build-push.png) - Image building and registry push
+- ![GitHub Actions](documentation/screenshots/CI/github-actions.png) - Workflow execution
+- ![CI Stages](documentation/screenshots/CI/ci-stages.png) - Pipeline stages overview
+- ![DVC & Preprocessing](documentation/screenshots/CI/dvc-and-preprocessing.png) - Data processing in CI
+- ![Experiment Tracking](documentation/screenshots/CI/experiment-tracking.png) - Tracking in pipeline
+- ![Model Training](documentation/screenshots/CI/model-training.png) - Training execution
+- ![MLflow Artifacts](documentation/screenshots/CI/mlflow-artifacts-uploaded.png) - Artifact uploads
+
+### CD Pipeline (Kubernetes Deployment)
+- ![Kubernetes Deployment](documentation/screenshots/CD/kubernetes-deployment-pods.png) - Pod deployment status
+- ![Kubernetes Service](documentation/screenshots/CD/kubernetes-service.png) - Service configuration
+- ![Pod Logs](documentation/screenshots/CD/pod-logs.png) - Application logs
+- ![Smoke Tests](documentation/screenshots/CD/smoke-test-results.png) - Health check results (scripts/smoke_test.py)
+- ![Health Check](documentation/screenshots/CD/app-api-healthcheck.png) - API health endpoint
+- ![Health Response](documentation/screenshots/CD/app-api-healthcheck-response.png) - Health response details
+- ![Prediction Request](documentation/screenshots/CD/app-api-predict-request-response.png) - Model prediction example
+- ![Prediction Response](documentation/screenshots/CD/app-api-predict-request-response1.png) - Alternative prediction example
+
+### Monitoring (Prometheus & Grafana)
+- ![Prometheus](documentation/screenshots/monitoring/prometheus.png) - Metrics collection and queries
+- ![Grafana](documentation/screenshots/monitoring/grafana.png) - Dashboard visualization
+- ![App Metrics](documentation/screenshots/monitoring/app-metrics.png) - Application-level metrics
+
+---
 
 ## Module Breakdown
 
@@ -395,13 +335,13 @@ data/
 ```
 
 **Advantages**:
-- [YES] Pipeline orchestration (`dvc.yaml` stages)
-- [YES] Parameter tracking (`params.yaml`)
-- [YES] Experiment comparison (`dvc metrics diff`, `dvc params diff`)
-- [YES] Works with S3, GCS, Azure, local storage
-- [YES] Lightweight metadata (`.dvc` files in Git)
-- [YES] Native MLOps features
-- [YES] Automatic reproducibility with `dvc repro`
+- Supports pipeline orchestration (`dvc.yaml` stages)
+- Supports parameter tracking (`params.yaml`)
+- Supports experiment comparison (`dvc metrics diff`, `dvc params diff`)
+- Works with S3, GCS, Azure, local storage
+- Lightweight metadata (`.dvc` files in Git)
+- Native MLOps features
+- Automatic reproducibility with `dvc repro`
 
 Setup in `.dvc/config`. Remote: `./dvc-storage` (local) or S3/GCS/Azure.
 
@@ -446,17 +386,17 @@ git lfs pull
 ```
 
 **Advantages**:
-- [YES] Simple Git workflow (no new tool to learn)
-- [YES] Transparent - works like normal Git
-- [YES] No metadata files (direct file versioning)
-- [YES] Good for simple dataset versioning
-- [YES] Works with GitHub, GitLab, Bitbucket
+- Offers simple Git workflow (no new tool to learn)
+- Transparent - works like normal Git
+- No metadata files (direct file versioning)
+- Good for simple dataset versioning
+- Works with GitHub, GitLab, Bitbucket
 
 **Limitations**:
-- [NO] No pipeline orchestration
-- [NO] No parameter tracking
-- [NO] No built-in experiment comparison
-- [NO] GitHub free tier: 1GB bandwidth/month, pay for more
+- No pipeline orchestration
+- No parameter tracking
+- No built-in experiment comparison
+- GitHub free tier: 1GB bandwidth/month, pay for more
 
 ---
 
@@ -465,12 +405,9 @@ git lfs pull
 | Feature | DVC | Git LFS |
 |---------|-----|---------|
 | **Learning Curve** | Medium | Low |
-| **Pipeline Orchestration** | [YES] | [NO] |
-| **Parameters Tracking** | [YES] | [NO] |
-| **Experiment Comparison** | [YES] | [NO] |
-| **Best For** | Full MLOps pipelines | Simple data versioning |
-
-**Recommendation for this assignment**: Use **DVC** for full MLOps module completion (M1 includes pipeline versioning).
+| **Pipeline Orchestration** | Supported | Not supported |
+| **Parameters Tracking** | Supported | Not supported |
+| **Experiment Comparison** | Supported | Not supported |
 
 ---
 
@@ -881,113 +818,7 @@ for prediction_result in predictions:
 
 ## Setup and Installation
 
-### Prerequisites
-- Python 3.10+
-- Docker & Docker Compose
-- Kubernetes (Minikube for local, or cloud K8s)
-- Git & DVC
-- ~5GB disk space for dataset
-
-### Local Development Setup
-
-```bash
-# Clone repository
-git clone https://github.com/username/cats-dogs-mlops-pipeline.git
-cd cats-dogs-mlops-pipeline
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Setup Git & DVC
-git init
-dvc init
-
-# Option 1: Download dataset manually & add to DVC
-python src/data_loader.py
-dvc add data/cats_and_dogs/
-# This creates data/cats_and_dogs.dvc and updates .gitignore
-
-# Option 2: Reproduce entire DVC pipeline (if remote is configured)
-dvc pull              # Download data from remote
-dvc repro             # Rebuilds all stages: data_download -> data_preprocess -> train_model
-
-# Run tests
-pytest tests/ -v
-```
-
-**DVC Pipeline** (`dvc.yaml`):
-- **Stage 1: data_download** - Downloads Microsoft Cats vs Dogs dataset
-- **Stage 2: data_preprocess** - Validates images, creates train/val/test splits
-- **Stage 3: train_model** - Trains CNN, logs metrics and artifacts
-
-**Run entire reproducible pipeline**:
-```bash
-dvc repro                    # Runs all stages with cached outputs
-dvc repro --force           # Force rerun all stages
-dvc repro --single-stage data_download  # Run only one stage
-```
-
-**Parameters** in `params.yaml`:
-- Training hyperparameters (epochs, batch_size, learning_rate)
-- Data configuration (directories, image size)
-- Model architecture (CNN, dropout, etc.)
-- Augmentation settings
-
-**Track parameter changes**:
-```bash
-dvc plots diff               # Compare metrics between runs
-dvc params diff             # Compare parameters between runs
-dvc dag                     # View pipeline DAG
-```
-
-# Start MLflow UI
-mlflow ui --port 5000
-
-# Run API locally
-uvicorn app.main:app --reload --port 8000
-
-# Test API
-curl http://localhost:8000/health
-```
-
-### Docker Setup
-
-```bash
-# Build image
-docker build -t cats-dogs-classifier:latest .
-
-# Run with Docker Compose
-docker-compose -f docker-compose.yml up -d
-
-# Access services
-# API: http://localhost:8000
-# MLflow: http://localhost:5000
-# Prometheus: http://localhost:9090
-# Grafana: http://localhost:3000
-```
-
-### Kubernetes Setup
-
-```bash
-# Start Minikube
-minikube start
-
-# Load Docker image into Minikube
-minikube image load cats-dogs-classifier:latest
-
-# Deploy
-kubectl apply -f k8s/
-
-# Access service
-kubectl port-forward svc/cats-dogs-service 8000:80
-
-# Monitor
-kubectl logs -f deployment/cats-dogs-deployment
-```
+For comprehensive setup instructions, see [MLOPS_setup.md](documentation/MLOPS_setup.md).
 
 ---
 
