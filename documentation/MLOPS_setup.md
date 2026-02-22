@@ -213,24 +213,7 @@ curl http://localhost:8000/metrics
 # - Accuracy: sum(model_correct_predictions_total[5m]) / sum(model_predictions_total[5m])
 ```
 
-## 9. Docker Compose (All-in-One)
-
-### Start All Services
-```bash
-# Start: API, MLflow, Prometheus, Grafana
-docker-compose up -d
-
-# Access services:
-# API: http://localhost:8000
-# MLflow: http://localhost:5000
-# Prometheus: http://localhost:9090
-# Grafana: http://localhost:3000
-
-# Stop services
-docker-compose down
-```
-
-## 10. Common Workflows
+## 9. Common Workflows
 
 ### Complete Training Pipeline
 ```bash
@@ -367,11 +350,3 @@ kubectl rollout restart deployment/cats-dogs-deployment
 - API running: `curl http://localhost:8000/health` returns healthy status
 - Tests passing: `pytest tests/ -v`
 - Docker image built: `docker images | grep cats-dogs-classifier`
-
-## Next Steps
-
-1. Complete Quick Start commands from [README.md](../README.md)
-2. Review model performance in MLflow UI
-3. Deploy to Kubernetes or run with Docker Compose
-4. Set up Grafana dashboards for monitoring
-5. Integrate with CI/CD pipeline for automated deployments
