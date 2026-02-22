@@ -220,11 +220,7 @@ git log --oneline  # View commit history
 
 ---
 
-## Data Versioning Options: DVC vs Git LFS
-
-Choose one approach based on your workflow:
-
-### Option A: DVC (Recommended for MLOps with Pipelines)
+## Data Versioning (DVC):
 
 **Setup**:
 ```bash
@@ -283,100 +279,6 @@ stages:
       - data/test  # 10%
     
   # Note: model_training stage removed — model training is executed outside DVC
-```
-
-**Data Directory Structure**:
-```
-data/
-├── cat-and-dog.zip           # Downloaded from Kaggle
-├── training_set/             # Extracted training (includes cats & dogs)
-├── test_set/                 # Extracted test (includes cats & dogs)
-├── train/                    # 80% of all data
-│   ├── cats/
-│   └── dogs/
-├── validation/               # 10% of all data
-│   ├── cats/
-│   └── dogs/
-└── test/                     # 10% of all data
-    ├── cats/
-    └── dogs/
-```
-
-**Advantages**:
-- Supports pipeline orchestration (`dvc.yaml` stages)
-- Supports parameter tracking (`params.yaml`)
-- Supports experiment comparison (`dvc metrics diff`, `dvc params diff`)
-- Works with S3, GCS, Azure, local storage
-- Lightweight metadata (`.dvc` files in Git)
-- Native MLOps features
-- Automatic reproducibility with `dvc repro`
-
-Setup in `.dvc/config`. Remote: `./dvc-storage` (local) or S3/GCS/Azure.
-
----
-
-### Option B: Git LFS (Lightweight for Simple Workflows)
-
-**Install Git LFS** (one-time setup):
-```bash
-# macOS
-brew install git-lfs
-
-# Ubuntu/Debian
-sudo apt-get install git-lfs
-
-# Windows
-choco install git-lfs
-# Or download from https://git-lfs.github.com/
-
-# Initialize Git LFS in repository
-git lfs install
-```
-
-**Setup**:
-```bash
-# Download dataset (creates data/train, data/validation, data/test)
-python src/data_loader.py
-
-# Track large files with Git LFS
-git lfs track "data/**/*.jpg"
-git lfs track "data/**/*.png"
-git add .gitattributes
-
-# Commit everything normally
-git add data/
-git commit -m "Add cats and dogs dataset (80/10/10 split)"
-git push origin main
-
-# Subsequent pulls download LFS files automatically
-git clone <repo-url>
-git lfs pull
-```
-
-**Advantages**:
-- Offers simple Git workflow (no new tool to learn)
-- Transparent - works like normal Git
-- No metadata files (direct file versioning)
-- Good for simple dataset versioning
-- Works with GitHub, GitLab, Bitbucket
-
-**Limitations**:
-- No pipeline orchestration
-- No parameter tracking
-- No built-in experiment comparison
-- GitHub free tier: 1GB bandwidth/month, pay for more
-
----
-
-### Comparison Table
-
-| Feature | DVC | Git LFS |
-|---------|-----|---------|
-| **Learning Curve** | Medium | Low |
-| **Pipeline Orchestration** | Supported | Not supported |
-| **Parameters Tracking** | Supported | Not supported |
-| **Experiment Comparison** | Supported | Not supported |
-
 ---
 
 #### 2. Model Building
@@ -923,4 +825,5 @@ docker logs prometheus
 ## CI/CD Status
 
 [![CI Pipeline]](https://github.com/sriramgunda/MLOPS-Pipeline/actions)
+
 
