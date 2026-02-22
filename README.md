@@ -161,48 +161,6 @@ dvc repro  # Automatically re-runs necessary stages
 
 For complete MLOps documentation, see [MLOPS_setup.md](documentation/MLOPS_setup.md).
 
-## Project Structure
-
-```
-.
-├── app/
-│   └── main.py                 # FastAPI inference service with 2 endpoints
-├── src/
-│   ├── data_loader.py          # Dataset downloading and organization (80/10/10 split)
-│   ├── data_preprocessing.py   # Image preprocessing, augmentation, normalization
-│   ├── train_cnn.py           # CNN model training with MLflow tracking
-│   ├── train_automl.py         # Legacy AutoML training (can be repurposed)
-│   ├── predict.py              # Inference script
-│   ├── mlflow_config.py        # MLflow initialization and utilities
-│   ├── dvc_utils.py            # DVC pipeline utilities
-│   └── CatDog.ipynb            # Interactive notebook with complete pipeline
-├── tests/
-│   ├── test_data_processing.py # Unit tests for image preprocessing
-│   └── test_model_training.py  # Unit tests for model inference
-├── k8s/
-│   ├── deployment.yaml         # Kubernetes deployment manifest
-│   ├── service.yaml            # Kubernetes service definition
-│   └── servicemonitor.yaml     # Prometheus monitoring configuration
-├── scripts/
-│   └── smoke_test.py           # Post-deployment smoke tests
-├── .github/
-│   └── workflows/
-│       └── ci-cd.yml           # GitHub Actions CI/CD pipeline
-├── documentation/              # Documentation and reports
-├── dvc.yaml                    # DVC pipeline definition (4 stages)
-├── params.yaml                 # Configuration parameters (epochs, model, data paths)
-├── .dvcignore                  # DVC ignore patterns
-├── .mlflowconfig               # MLflow server configuration
-├── .gitignore                  # Git ignore patterns (DVC cache, MLflow, models)
-├── docker-compose.yml          # Docker Compose for local development
-├── Dockerfile                  # Application container image
-├── requirements.txt            # Python dependencies with pinned versions
-├── prometheus.yml              # Prometheus scrape configuration
-├── setup_mlops.py              # MLOps initialization script
-├── setup.sh                    # Environment setup script
-└── README.md                   # This file
-```
-
 ## Screenshots
 
 MLOps pipeline implementation showcased across multiple modules:

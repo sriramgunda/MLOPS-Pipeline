@@ -4,8 +4,8 @@
 
 - Python 3.10+
 - Git & DVC
-- Docker (optional, for containerization)
-- Kubernetes/Minikube (optional, for deployment)
+- Docker
+- Kubernetes/Minikube
 - ~5GB disk space
 
 ## 1. Environment Setup
