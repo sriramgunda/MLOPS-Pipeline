@@ -1,0 +1,44 @@
+# DVC ignore patterns
+# Ignore files and directories that should not be tracked by DVC
+
+# Python cache and virtual environments
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.env
+venv/
+env/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+.DS_Store
+
+# Jupyter notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+mlruns/
+.mlflow/
+
+# OS-specific files
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Git
+.git
+.gitignore
+
+# Already tracked elsewhere
+.dvc
+.dvcignore
+README.md

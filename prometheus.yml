@@ -1,7 +1,52 @@
 global:
-  scrape_interval: 5s
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'cats-dogs-mlops'
+    environment: 'production'
 
 scrape_configs:
-  - job_name: "heart-disease-api"
+  # Docker Compose / Local Development
+  - job_name: "cats-dogs-api-local"
+    static_configs:
+      - targets: ["localhost:8000"]
+    metrics_path: "/metrics"
+    scrape_interval: 5s
+    scrape_timeout: 4s
+
+  # Docker Compose (alternatively)
+  - job_name: "cats-dogs-api-docker"
     static_configs:
       - targets: ["host.docker.internal:8000"]
+    metrics_path: "/metrics"
+    scrape_interval: 5s
+
+  # Kubernetes Service Discovery
+  - job_name: "kubernetes-pods"
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      # Only scrape pods with prometheus.io/scrape annotation
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      # Get metrics path from annotation
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      # Get port from annotation
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files:
+  - "/etc/prometheus/alert.rules.yml"
+

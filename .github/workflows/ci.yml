@@ -1,10 +1,10 @@
-name: Heart Disease ML CI Pipeline
+name: Cats and Dogs Classifier CI Pipeline
 
 on:
   push:
-    branches: [ "sriram" ]
+    branches: [ "kumaravanish-patch-2" ]
   pull_request:
-    branches: [ "sriram" ]
+    branches: [ "kumaravanish-patch-2" ]
 
 jobs:
   build-test-train:
@@ -12,6 +12,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    
+    env:
+      CUDA_VISIBLE_DEVICES: "-1"
 
     steps:
     - name: Checkout Repository
@@ -30,25 +33,29 @@ jobs:
 
     - name: Lint Code (flake8)
       run: |
-        flake8 src/train_automl.py || true
+        flake8 src/train_cnn.py || true
+    
+    - name: DVC - Data Preparation
+      run: |
+        python src/run_dvc.py
 
     - name: Run Unit Tests
       run: |
         pytest tests/
 
-    - name: Run EDA
-      run: |
-        python src/auto_eda.py
+    #- name: Run EDA
+    #  run: |
+    #    python src/auto_eda.py
 
-    - name: Upload EDA Reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: eda-reports
-        path: plots/
+    #- name: Upload EDA Reports
+    #  uses: actions/upload-artifact@v4
+    #  with:
+    #    name: eda-reports
+    #    path: plots/
       
     - name: Train AutoML Model
       run: |
-        python src/train_automl.py
+        python src/train_cnn.py
       env:
         MLFLOW_TRACKING_URI: ./mlruns
 
@@ -60,13 +67,13 @@ jobs:
 
     - name: Prepare Model for Docker
       run: |
-        # The training step produces 'best_model_artifacts/inference_pipeline.pkl'
-        # We copy it to 'app/model.pkl' so the Dockerfile can pick it up
-        if [ -f "best_model_artifacts/inference_pipeline.pkl" ]; then
-          cp best_model_artifacts/inference_pipeline.pkl app/model.pkl
+        # The training step produces 'models/best_model.keras'
+        # We copy it to 'app/best_model.keras' so the Dockerfile can pick it up
+        if [ -f "models/best_model.keras" ]; then
+          cp models/best_model.keras app/best_model.keras
           echo "Model prepared successfully from artifacts."
         else
-          echo "Error: inference_pipeline.pkl not found in best_model_artifacts/"
+          echo "Error: best_model.keras not found in models/"
           exit 1
         fi
 
@@ -79,7 +86,7 @@ jobs:
 
     - name: Build and Push Docker Image
       run: |
-        IMAGE_ID=ghcr.io/${{ github.repository_owner }}/heart-disease-api
+        IMAGE_ID=ghcr.io/${{ github.repository_owner }}/cats_dogs_api
         # Convert to lowercase
         IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
         VERSION=latest
