@@ -279,8 +279,8 @@ stages:
       - data/test  # 10%
     
   # Note: model_training stage removed — model training is executed outside DVC
+```
 ---
-
 #### 2. Model Building
 - **Architecture**: MobileNetV2 transfer learning with frozen base + custom head
 - **Base Model**: ImageNet pre-trained weights
@@ -412,7 +412,18 @@ results = train_cnn_pipeline(
      http://localhost:8000/predict-base64
    ```
 
-4. **Metrics** (`GET /metrics`)
+4. **Model Performance Simulation/feedback** (`POST /feedback`)
+   ```bash
+   curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{
+        "predicted_label": "dog",
+        "true_label": "cat"
+    }' \
+     http://localhost:8000/feedback
+   ```
+
+5. **Metrics** (`GET /metrics`)
    - Prometheus-compatible metrics endpoint
 
 #### 2. Environment Specification
@@ -768,17 +779,6 @@ curl 'http://localhost:9090/api/v1/query?query=rate(api_requests_total[5m])'
 
 ---
 
-## Performance Benchmarks
-
-| Metric | Baseline (Current) | Transfer Learning | Target |
-|--------|-------------------|------------------|--------|
-| Accuracy | 92.5% | 95.8% | >90% |
-| Latency (p95) | 180ms | 220ms | <300ms |
-| Throughput | 120 req/s | 100 req/s | >50 req/s |
-| Model Size | 45MB | 15MB | <100MB |
-
----
-
 ## Troubleshooting
 
 ### Model Not Loading
@@ -825,5 +825,6 @@ docker logs prometheus
 ## CI/CD Status
 
 [![CI Pipeline]](https://github.com/sriramgunda/MLOPS-Pipeline/actions)
+
 
 
