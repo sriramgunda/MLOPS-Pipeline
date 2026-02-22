@@ -6,6 +6,20 @@ MLOps pipeline for binary image classification (Cats vs Dogs). Includes model tr
 
 NOTE: This project uses DVC only for dataset versioning and tracking pre-processed data (download, extraction, organization). Model training and hyperparameter experimentation are run outside DVC (see "Train model" step). Do not track model parameters in DVC.
 
+## Project Demo
+
+Watch the full MLOps pipeline demonstration:
+
+[![MLOps Pipeline Demo](https://img.youtube.com/vi/O0FTtf04jKY/0.jpg)](https://www.youtube.com/watch?v=O0FTtf04jKY)
+
+Click Here
+[Full Project Demo on YouTube](https://www.youtube.com/watch?v=O0FTtf04jKY)
+
+Or
+ 
+Copy & Navigate
+https://www.youtube.com/watch?v=O0FTtf04jKY
+
 ## Architecture Diagram
 
 ```
