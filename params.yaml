@@ -1,5 +1,5 @@
 train_config:
-  epochs: 1
+  epochs: 10
   batch_size: 32
   learning_rate: 0.001
   validation_split: 0.1
