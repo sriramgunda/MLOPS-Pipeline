@@ -185,16 +185,12 @@ MLOps pipeline implementation showcased across multiple modules:
 
 ### Experiment Tracking (MLflow)
 - ![MLflow UI](documentation/screenshots/experiment-tracking/mlflow-ui.png) - Experiment overview and run tracking
-- ![Model Training](documentation/screenshots/experiment-tracking/model-training.png) - Training progress visualization
 - ![Model Metrics](documentation/screenshots/experiment-tracking/model-metrics.png) - Metrics comparison
 - ![Model Overview](documentation/screenshots/experiment-tracking/model-overview.png) - Model details
 - ![Model Versioning](documentation/screenshots/experiment-tracking/model-versioninig.png) - Version management
 - ![Models Tracked](documentation/screenshots/experiment-tracking/models-tracked.png) - All tracked models
 - ![Model Metadata 1](documentation/screenshots/experiment-tracking/model-metadata-1.png) - Metadata details (part 1)
 - ![Model Metadata 2](documentation/screenshots/experiment-tracking/model-metadata-2.png) - Metadata details (part 2)
-- ![MLflow Artifacts](documentation/screenshots/experiment-tracking/mlflow-artifacts-uploaded.png) - Uploaded artifacts
-- ![DVC & Preprocessing](documentation/screenshots/experiment-tracking/dvc-and-preprocessing.png) - Data versioning workflow
-- ![Experiment Tracking](documentation/screenshots/experiment-tracking/experiment-tracking.png) - Tracking setup
 
 ### CI Pipeline (GitHub Actions)
 - ![Install Dependencies](documentation/screenshots/CI/install-dependencies.png) - Dependency installation
