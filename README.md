@@ -16,9 +16,19 @@ Click Here
 [Full Project Demo on YouTube](https://www.youtube.com/watch?v=O0FTtf04jKY)
 
 Or
- 
+
 Copy & Navigate
 https://www.youtube.com/watch?v=O0FTtf04jKY
+
+## Link to the Pipeline Artifacts
+
+Click Here
+[Pipeline Artifacts](https://github.com/sriramgunda/MLOPS-Pipeline/actions/runs/22263567138/artifacts/5603170178)
+
+Or
+
+Copy & Navigate
+https://github.com/sriramgunda/MLOPS-Pipeline/actions/runs/22263567138/artifacts/5603170178
 
 ## Architecture Diagram
 
